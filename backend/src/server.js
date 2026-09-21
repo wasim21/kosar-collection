@@ -25,7 +25,7 @@ const db = mysql.createPool({
   ssl:
     process.env.DB_SSL === "true"
       ? {
-          rejectUnauthorized: true,
+          rejectUnauthorized: false,
         }
       : undefined,
 
