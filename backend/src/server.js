@@ -17,9 +17,18 @@ app.use(express.json());
 
 const db = mysql.createPool({
   host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+
+  ssl:
+    process.env.DB_SSL === "true"
+      ? {
+          rejectUnauthorized: true,
+        }
+      : undefined,
+
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -444,8 +453,6 @@ app.get("/api/dashboard", async (req, res) => {
    START SERVER
 ========================= */
 
-app.listen(PORT, () => {
-  console.log(
-    `KOSAR COLLECTION API running on http://localhost:${PORT}`
-  );
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`KOSAR COLLECTION API running on port ${PORT}`);
 });
