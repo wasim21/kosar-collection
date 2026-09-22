@@ -11,7 +11,6 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-
 const MONTHLY_API =
   `${API_URL}/api/reports/monthly`;
 
@@ -20,7 +19,6 @@ const CATEGORY_API =
 
 const PRODUCT_API =
   `${API_URL}/api/reports/product-performance`;
-
 
 function Reports() {
   const [monthlyData, setMonthlyData] = useState([]);
@@ -506,28 +504,6 @@ function Reports() {
                   />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
-
-
-            <div
-              style={{
-                display: "flex",
-                gap: "20px",
-                marginTop: "15px",
-                fontSize: "14px",
-              }}
-            >
-              <span>
-                Sales
-              </span>
-
-              <span>
-                Gross Profit
-              </span>
-
-              <span>
-                Expenses
-              </span>
             </div>
           </>
         ) : (
