@@ -4,6 +4,35 @@ const router = express.Router();
 
 /*
 ==================================================
+IST DATE HELPER
+==================================================
+*/
+
+const getISTMonthInfo = () => {
+  const istDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+  }).format(new Date());
+
+  const [year, month] = istDate.split("-").map(Number);
+
+  let previousYear = year;
+  let previousMonth = month - 1;
+
+  if (previousMonth === 0) {
+    previousMonth = 12;
+    previousYear -= 1;
+  }
+
+  return {
+    currentYear: year,
+    currentMonth: month,
+    previousYear,
+    previousMonth,
+  };
+};
+
+/*
+==================================================
 MONTHLY BUSINESS REPORT
 ==================================================
 */
@@ -91,18 +120,13 @@ router.get("/monthly", async (req, res) => {
     ==============================================
     */
 
-    const currentDate = new Date();
-
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-
-    let previousYear = currentYear;
-    let previousMonth = currentMonth - 1;
-
-    if (previousMonth === 0) {
-      previousMonth = 12;
-      previousYear -= 1;
-    }
+    // Use IST instead of the server's local timezone
+    const {
+      currentYear,
+      currentMonth,
+      previousYear,
+      previousMonth,
+    } = getISTMonthInfo();
 
     const currentReport = report.find(
       (item) =>
@@ -227,7 +251,6 @@ router.get("/monthly", async (req, res) => {
   }
 });
 
-
 /*
 ==================================================
 CATEGORY PERFORMANCE REPORT
@@ -269,9 +292,7 @@ router.get(
 
           return {
             category: item.category,
-            itemsSold: Number(
-              item.items_sold
-            ),
+            itemsSold: Number(item.items_sold),
             sales,
             cost,
             grossProfit,
