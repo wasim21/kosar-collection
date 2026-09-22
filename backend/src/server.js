@@ -40,6 +40,44 @@ app.use((req, res, next) => {
 });
 
 /* =========================
+   IST DATE HELPERS
+========================= */
+
+const getISTDate = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+  }).format(new Date());
+
+const getISTMonthInfo = () => {
+  const today = getISTDate();
+
+  const [year, month, day] = today.split("-").map(Number);
+
+  const currentMonthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+
+  let previousYear = year;
+  let previousMonth = month - 1;
+
+  if (previousMonth === 0) {
+    previousMonth = 12;
+    previousYear--;
+  }
+
+  const previousMonthStart =
+    `${previousYear}-${String(previousMonth).padStart(2, "0")}-01`;
+
+  return {
+    today,
+    currentMonthStart,
+    previousMonthStart,
+    currentYear: year,
+    currentMonth: month,
+    previousYear,
+    previousMonth,
+  };
+};
+
+/* =========================
    API ROUTES
 ========================= */
 
@@ -91,38 +129,53 @@ app.get("/api/test-db", async (req, res) => {
 
 app.get("/api/dashboard", async (req, res) => {
   try {
+    const {
+      today,
+      currentMonthStart,
+      previousMonthStart,
+    } = getISTMonthInfo();
+
     /* -------------------------
        TODAY'S SALES
     ------------------------- */
 
-    const [[todaySales]] = await db.query(`
+    const [[todaySales]] = await db.query(
+      `
       SELECT
         COALESCE(SUM(total_amount), 0) AS total
       FROM sales
-      WHERE sale_date = CURDATE()
-    `);
+      WHERE sale_date = ?
+      `,
+      [today]
+    );
 
     /* -------------------------
        TODAY'S GROSS PROFIT
     ------------------------- */
 
-    const [[todayGrossProfit]] = await db.query(`
+    const [[todayGrossProfit]] = await db.query(
+      `
       SELECT
         COALESCE(SUM(gross_profit), 0) AS total
       FROM sales
-      WHERE sale_date = CURDATE()
-    `);
+      WHERE sale_date = ?
+      `,
+      [today]
+    );
 
     /* -------------------------
        TODAY'S EXPENSES
     ------------------------- */
 
-    const [[todayExpenses]] = await db.query(`
+    const [[todayExpenses]] = await db.query(
+      `
       SELECT
         COALESCE(SUM(amount), 0) AS total
       FROM expenses
-      WHERE expense_date = CURDATE()
-    `);
+      WHERE expense_date = ?
+      `,
+      [today]
+    );
 
     /* -------------------------
        TODAY'S NET PROFIT
@@ -136,37 +189,46 @@ app.get("/api/dashboard", async (req, res) => {
        CURRENT MONTH SALES
     ------------------------- */
 
-    const [[monthSales]] = await db.query(`
+    const [[monthSales]] = await db.query(
+      `
       SELECT
         COALESCE(SUM(total_amount), 0) AS total
       FROM sales
-      WHERE YEAR(sale_date) = YEAR(CURDATE())
-        AND MONTH(sale_date) = MONTH(CURDATE())
-    `);
+      WHERE sale_date >= ?
+        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
+      `,
+      [currentMonthStart, currentMonthStart]
+    );
 
     /* -------------------------
        CURRENT MONTH GROSS PROFIT
     ------------------------- */
 
-    const [[monthGrossProfit]] = await db.query(`
+    const [[monthGrossProfit]] = await db.query(
+      `
       SELECT
         COALESCE(SUM(gross_profit), 0) AS total
       FROM sales
-      WHERE YEAR(sale_date) = YEAR(CURDATE())
-        AND MONTH(sale_date) = MONTH(CURDATE())
-    `);
+      WHERE sale_date >= ?
+        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
+      `,
+      [currentMonthStart, currentMonthStart]
+    );
 
     /* -------------------------
        CURRENT MONTH EXPENSES
     ------------------------- */
 
-    const [[monthExpenses]] = await db.query(`
+    const [[monthExpenses]] = await db.query(
+      `
       SELECT
         COALESCE(SUM(amount), 0) AS total
       FROM expenses
-      WHERE YEAR(expense_date) = YEAR(CURDATE())
-        AND MONTH(expense_date) = MONTH(CURDATE())
-    `);
+      WHERE expense_date >= ?
+        AND expense_date < DATE_ADD(?, INTERVAL 1 MONTH)
+      `,
+      [currentMonthStart, currentMonthStart]
+    );
 
     /* -------------------------
        CURRENT MONTH NET PROFIT
@@ -180,45 +242,50 @@ app.get("/api/dashboard", async (req, res) => {
        PREVIOUS MONTH SALES
     ------------------------- */
 
-    const [[previousMonthSales]] = await db.query(`
+    const [[previousMonthSales]] = await db.query(
+      `
       SELECT
         COALESCE(SUM(total_amount), 0) AS total
       FROM sales
-      WHERE YEAR(sale_date) = YEAR(
-        DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-      )
-      AND MONTH(sale_date) = MONTH(
-        DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-      )
-    `);
+      WHERE sale_date >= ?
+        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
+      `,
+      [previousMonthStart, previousMonthStart]
+    );
+
+    /* -------------------------
+       PREVIOUS MONTH GROSS PROFIT
+    ------------------------- */
+
+    const [[previousMonthGrossProfit]] = await db.query(
+      `
+      SELECT
+        COALESCE(SUM(gross_profit), 0) AS total
+      FROM sales
+      WHERE sale_date >= ?
+        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
+      `,
+      [previousMonthStart, previousMonthStart]
+    );
+
+    /* -------------------------
+       PREVIOUS MONTH EXPENSES
+    ------------------------- */
+
+    const [[previousMonthExpenses]] = await db.query(
+      `
+      SELECT
+        COALESCE(SUM(amount), 0) AS total
+      FROM expenses
+      WHERE expense_date >= ?
+        AND expense_date < DATE_ADD(?, INTERVAL 1 MONTH)
+      `,
+      [previousMonthStart, previousMonthStart]
+    );
 
     /* -------------------------
        PREVIOUS MONTH NET PROFIT
     ------------------------- */
-
-    const [[previousMonthGrossProfit]] = await db.query(`
-      SELECT
-        COALESCE(SUM(gross_profit), 0) AS total
-      FROM sales
-      WHERE YEAR(sale_date) = YEAR(
-        DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-      )
-      AND MONTH(sale_date) = MONTH(
-        DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-      )
-    `);
-
-    const [[previousMonthExpenses]] = await db.query(`
-      SELECT
-        COALESCE(SUM(amount), 0) AS total
-      FROM expenses
-      WHERE YEAR(expense_date) = YEAR(
-        DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-      )
-      AND MONTH(expense_date) = MONTH(
-        DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-      )
-    `);
 
     const previousMonthNetProfit =
       Number(previousMonthGrossProfit.total) -
@@ -454,5 +521,7 @@ app.get("/api/dashboard", async (req, res) => {
 ========================= */
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`KOSAR COLLECTION API running on port ${PORT}`);
+  console.log(
+    `KOSAR COLLECTION API running on port ${PORT}`
+  );
 });

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
-const DASHBOARD_API =
-  "http://localhost:5000/api/dashboard";
+const DASHBOARD_API = `${import.meta.env.VITE_API_URL}/api/dashboard`;
 
 function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
@@ -58,7 +57,7 @@ function Dashboard() {
           <div>
             <h1>Dashboard</h1>
             <p>
-              Welcome to KOSAR COLLECTION Smart Shop Manager
+              Welcome to KOSAR COLLECTION
             </p>
           </div>
         </div>

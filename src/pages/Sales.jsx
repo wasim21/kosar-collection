@@ -9,7 +9,14 @@ import {
   Trash2,
 } from "lucide-react";
 
-const SALES_API = "http://localhost:5000/api/sales";
+const SALES_API =
+  `${import.meta.env.VITE_API_URL}/api/sales`;
+
+// Get today's date according to Indian Standard Time (IST)
+const getISTDate = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+  }).format(new Date());
 
 function Sales() {
   const [sales, setSales] = useState([]);
@@ -25,7 +32,7 @@ function Sales() {
     productId: "",
     quantity: 1,
     paymentMethod: "Cash",
-    saleDate: new Date().toISOString().split("T")[0],
+    saleDate: getISTDate(),
   });
 
   const fetchSales = async () => {
@@ -78,7 +85,8 @@ function Sales() {
   }, []);
 
   const selectedProduct = products.find(
-    (product) => String(product.id) === String(form.productId)
+    (product) =>
+      String(product.id) === String(form.productId)
   );
 
   const quantity = Number(form.quantity) || 0;
@@ -105,7 +113,7 @@ function Sales() {
       productId: "",
       quantity: 1,
       paymentMethod: "Cash",
-      saleDate: new Date().toISOString().split("T")[0],
+      saleDate: getISTDate(),
     });
   };
 
@@ -127,7 +135,10 @@ function Sales() {
       return;
     }
 
-    if (quantity > Number(selectedProduct.current_stock)) {
+    if (
+      quantity >
+      Number(selectedProduct.current_stock)
+    ) {
       alert(
         `Only ${selectedProduct.current_stock} item(s) are available in stock.`
       );
@@ -153,7 +164,9 @@ function Sales() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to record sale");
+        throw new Error(
+          data.message || "Failed to record sale"
+        );
       }
 
       alert(
@@ -168,7 +181,9 @@ function Sales() {
       await loadData();
     } catch (error) {
       console.error("Save sale error:", error);
-      alert(error.message || "Unable to record sale.");
+      alert(
+        error.message || "Unable to record sale."
+      );
     } finally {
       setSaving(false);
     }
@@ -184,14 +199,19 @@ function Sales() {
     }
 
     try {
-      const response = await fetch(`${SALES_API}/${id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${SALES_API}/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to delete sale");
+        throw new Error(
+          data.message || "Failed to delete sale"
+        );
       }
 
       alert("Sale deleted and stock restored.");
@@ -199,28 +219,36 @@ function Sales() {
       await loadData();
     } catch (error) {
       console.error("Delete sale error:", error);
-      alert(error.message || "Unable to delete sale.");
+      alert(
+        error.message ||
+          "Unable to delete sale."
+      );
     }
   };
 
-  const today = new Date().toISOString().split("T")[0];
+  // Today's date according to IST
+  const today = getISTDate();
 
   const todaySales = sales.filter(
-    (sale) => sale.sale_date?.split("T")[0] === today
+    (sale) =>
+      sale.sale_date?.split("T")[0] === today
   );
 
   const todayRevenue = todaySales.reduce(
-    (total, sale) => total + Number(sale.total_amount),
+    (total, sale) =>
+      total + Number(sale.total_amount),
     0
   );
 
   const todayProfit = todaySales.reduce(
-    (total, sale) => total + Number(sale.gross_profit),
+    (total, sale) =>
+      total + Number(sale.gross_profit),
     0
   );
 
   const todayItems = todaySales.reduce(
-    (total, sale) => total + Number(sale.quantity),
+    (total, sale) =>
+      total + Number(sale.quantity),
     0
   );
 
@@ -254,8 +282,14 @@ function Sales() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Today's Sales</p>
-              <h2>₹{todayRevenue.toLocaleString("en-IN")}</h2>
+              <p className="stat-title">
+                Today's Sales
+              </p>
+
+              <h2>
+                ₹{todayRevenue.toLocaleString("en-IN")}
+              </h2>
+
               <p className="stat-subtitle">
                 {todaySales.length} transaction(s)
               </p>
@@ -270,9 +304,17 @@ function Sales() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Today's Profit</p>
-              <h2>₹{todayProfit.toLocaleString("en-IN")}</h2>
-              <p className="stat-subtitle">Gross profit</p>
+              <p className="stat-title">
+                Today's Profit
+              </p>
+
+              <h2>
+                ₹{todayProfit.toLocaleString("en-IN")}
+              </h2>
+
+              <p className="stat-subtitle">
+                Gross profit
+              </p>
             </div>
 
             <div className="stat-icon">
@@ -284,9 +326,15 @@ function Sales() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Items Sold</p>
+              <p className="stat-title">
+                Items Sold
+              </p>
+
               <h2>{todayItems}</h2>
-              <p className="stat-subtitle">Items sold today</p>
+
+              <p className="stat-subtitle">
+                Items sold today
+              </p>
             </div>
 
             <div className="stat-icon">
@@ -310,7 +358,9 @@ function Sales() {
               type="text"
               placeholder="Search product, category..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
             />
           </div>
         </div>
@@ -319,14 +369,21 @@ function Sales() {
           {loading ? (
             <div className="empty-state">
               <ShoppingCart size={40} />
+
               <h3>Loading sales...</h3>
+
               <p>Please wait.</p>
             </div>
           ) : filteredSales.length === 0 ? (
             <div className="empty-state">
               <ShoppingCart size={40} />
+
               <h3>No sales found</h3>
-              <p>Click "New Sale" to record your first sale.</p>
+
+              <p>
+                Click "New Sale" to record your
+                first sale.
+              </p>
             </div>
           ) : (
             <table className="data-table">
@@ -347,10 +404,14 @@ function Sales() {
               <tbody>
                 {filteredSales.map((sale) => (
                   <tr key={sale.id}>
-                    <td>{sale.sale_date?.split("T")[0]}</td>
+                    <td>
+                      {sale.sale_date?.split("T")[0]}
+                    </td>
 
                     <td>
-                      <strong>{sale.product_name}</strong>
+                      <strong>
+                        {sale.product_name}
+                      </strong>
                     </td>
 
                     <td>{sale.category}</td>
@@ -359,36 +420,40 @@ function Sales() {
 
                     <td>
                       ₹
-                      {Number(sale.selling_price).toLocaleString(
-                        "en-IN"
-                      )}
+                      {Number(
+                        sale.selling_price
+                      ).toLocaleString("en-IN")}
                     </td>
 
                     <td>
                       <strong>
                         ₹
-                        {Number(sale.total_amount).toLocaleString(
-                          "en-IN"
-                        )}
+                        {Number(
+                          sale.total_amount
+                        ).toLocaleString("en-IN")}
                       </strong>
                     </td>
 
                     <td>
                       <strong>
                         ₹
-                        {Number(sale.gross_profit).toLocaleString(
-                          "en-IN"
-                        )}
+                        {Number(
+                          sale.gross_profit
+                        ).toLocaleString("en-IN")}
                       </strong>
                     </td>
 
-                    <td>{sale.payment_method}</td>
+                    <td>
+                      {sale.payment_method}
+                    </td>
 
                     <td>
                       <button
                         className="icon-btn delete-btn"
                         title="Delete Sale"
-                        onClick={() => deleteSale(sale.id)}
+                        onClick={() =>
+                          deleteSale(sale.id)
+                        }
                       >
                         <Trash2 size={17} />
                       </button>
@@ -407,7 +472,10 @@ function Sales() {
             <div className="modal-header">
               <div>
                 <h2>New Sale</h2>
-                <p>Record a customer purchase</p>
+
+                <p>
+                  Record a customer purchase
+                </p>
               </div>
 
               <button
@@ -431,7 +499,9 @@ function Sales() {
                     value={form.productId}
                     onChange={handleChange}
                   >
-                    <option value="">Select Product</option>
+                    <option value="">
+                      Select Product
+                    </option>
 
                     {products.map((product) => (
                       <option
@@ -452,13 +522,17 @@ function Sales() {
 
                       <input
                         type="text"
-                        value={selectedProduct.category}
+                        value={
+                          selectedProduct.category
+                        }
                         readOnly
                       />
                     </div>
 
                     <div className="form-group">
-                      <label>Selling Price</label>
+                      <label>
+                        Selling Price
+                      </label>
 
                       <input
                         type="text"
@@ -470,11 +544,15 @@ function Sales() {
                     </div>
 
                     <div className="form-group">
-                      <label>Available Stock</label>
+                      <label>
+                        Available Stock
+                      </label>
 
                       <input
                         type="text"
-                        value={selectedProduct.current_stock}
+                        value={
+                          selectedProduct.current_stock
+                        }
                         readOnly
                       />
                     </div>
@@ -488,23 +566,36 @@ function Sales() {
                     type="number"
                     name="quantity"
                     min="1"
-                    max={selectedProduct?.current_stock || undefined}
+                    max={
+                      selectedProduct?.current_stock ||
+                      undefined
+                    }
                     value={form.quantity}
                     onChange={handleChange}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Payment Method</label>
+                  <label>
+                    Payment Method
+                  </label>
 
                   <select
                     name="paymentMethod"
                     value={form.paymentMethod}
                     onChange={handleChange}
                   >
-                    <option value="Cash">Cash</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Card</option>
+                    <option value="Cash">
+                      Cash
+                    </option>
+
+                    <option value="UPI">
+                      UPI
+                    </option>
+
+                    <option value="Card">
+                      Card
+                    </option>
                   </select>
                 </div>
 
@@ -522,10 +613,15 @@ function Sales() {
                 {selectedProduct && (
                   <div className="sale-summary full-width">
                     <div>
-                      <span>Total Sale</span>
+                      <span>
+                        Total Sale
+                      </span>
 
                       <strong>
-                        ₹{totalAmount.toLocaleString("en-IN")}
+                        ₹
+                        {totalAmount.toLocaleString(
+                          "en-IN"
+                        )}
                       </strong>
                     </div>
 
@@ -533,15 +629,23 @@ function Sales() {
                       <span>Cost</span>
 
                       <strong>
-                        ₹{totalCost.toLocaleString("en-IN")}
+                        ₹
+                        {totalCost.toLocaleString(
+                          "en-IN"
+                        )}
                       </strong>
                     </div>
 
                     <div>
-                      <span>Gross Profit</span>
+                      <span>
+                        Gross Profit
+                      </span>
 
                       <strong>
-                        ₹{grossProfit.toLocaleString("en-IN")}
+                        ₹
+                        {grossProfit.toLocaleString(
+                          "en-IN"
+                        )}
                       </strong>
                     </div>
                   </div>
@@ -564,11 +668,16 @@ function Sales() {
                 <button
                   type="submit"
                   className="primary-btn"
-                  disabled={saving || products.length === 0}
+                  disabled={
+                    saving ||
+                    products.length === 0
+                  }
                 >
                   <ShoppingCart size={18} />
 
-                  {saving ? "Recording..." : "Record Sale"}
+                  {saving
+                    ? "Recording..."
+                    : "Record Sale"}
                 </button>
               </div>
             </form>

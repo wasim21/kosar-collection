@@ -9,14 +9,18 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
+
 const MONTHLY_API =
-  "http://localhost:5000/api/reports/monthly";
+  `${API_URL}/api/reports/monthly`;
 
 const CATEGORY_API =
-  "http://localhost:5000/api/reports/category-performance";
+  `${API_URL}/api/reports/category-performance`;
 
 const PRODUCT_API =
-  "http://localhost:5000/api/reports/product-performance";
+  `${API_URL}/api/reports/product-performance`;
+
 
 function Reports() {
   const [monthlyData, setMonthlyData] = useState([]);

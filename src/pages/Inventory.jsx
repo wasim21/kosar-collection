@@ -9,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api/products";
+const API_URL =  import.meta.env.VITE_API_URL;
 
 function Inventory() {
   const [products, setProducts] = useState([]);
@@ -45,7 +45,7 @@ function Inventory() {
     try {
       setLoading(true);
 
-      const response = await fetch(API_URL);
+      const response = await fetch(`${API_URL}/api/products`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -113,8 +113,8 @@ function Inventory() {
       };
 
       const url = editingId
-        ? `${API_URL}/${editingId}`
-        : API_URL;
+  ?       `${API_URL}/api/products/${editingId}`
+  :       `${API_URL}/api/products`;
 
       const method = editingId ? "PUT" : "POST";
 
@@ -175,7 +175,7 @@ function Inventory() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
+     const response = await fetch(`${API_URL}/api/products/${id}`, {
         method: "DELETE",
       });
 

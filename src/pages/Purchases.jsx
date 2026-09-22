@@ -8,7 +8,14 @@ import {
   Trash2,
 } from "lucide-react";
 
-const PURCHASES_API = "http://localhost:5000/api/purchases";
+const PURCHASES_API =
+  `${import.meta.env.VITE_API_URL}/api/purchases`;
+
+// Get today's date according to Indian Standard Time (IST)
+const getISTDate = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+  }).format(new Date());
 
 function Purchases() {
   const [purchases, setPurchases] = useState([]);
@@ -26,30 +33,47 @@ function Purchases() {
     quantity: 1,
     purchasePrice: "",
     paymentMethod: "Cash",
-    purchaseDate: new Date().toISOString().split("T")[0],
+    purchaseDate: getISTDate(),
     notes: "",
   });
 
   const fetchPurchases = async () => {
-    const response = await fetch(PURCHASES_API);
-    const data = await response.json();
+    try {
+      const response = await fetch(PURCHASES_API);
+      const data = await response.json();
 
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Failed to fetch purchases");
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to fetch purchases"
+        );
+      }
+
+      setPurchases(data.purchases);
+    } catch (error) {
+      console.error("Fetch purchases error:", error);
+      throw error;
     }
-
-    setPurchases(data.purchases);
   };
 
   const fetchProducts = async () => {
-    const response = await fetch(`${PURCHASES_API}/products`);
-    const data = await response.json();
+    try {
+      const response = await fetch(
+        `${PURCHASES_API}/products`
+      );
 
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Failed to fetch products");
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to fetch products"
+        );
+      }
+
+      setProducts(data.products);
+    } catch (error) {
+      console.error("Fetch products error:", error);
+      throw error;
     }
-
-    setProducts(data.products);
   };
 
   const loadData = async () => {
@@ -62,7 +86,11 @@ function Purchases() {
       ]);
     } catch (error) {
       console.error("Load purchases error:", error);
-      alert(error.message || "Unable to load purchases.");
+
+      alert(
+        error.message ||
+          "Unable to load purchases."
+      );
     } finally {
       setLoading(false);
     }
@@ -73,12 +101,18 @@ function Purchases() {
   }, []);
 
   const selectedProduct = products.find(
-    (product) => String(product.id) === String(form.productId)
+    (product) =>
+      String(product.id) ===
+      String(form.productId)
   );
 
   const quantity = Number(form.quantity) || 0;
-  const purchasePrice = Number(form.purchasePrice) || 0;
-  const totalAmount = quantity * purchasePrice;
+
+  const purchasePrice =
+    Number(form.purchasePrice) || 0;
+
+  const totalAmount =
+    quantity * purchasePrice;
 
   const handleChange = (e) => {
     setForm({
@@ -91,7 +125,9 @@ function Purchases() {
     const productId = e.target.value;
 
     const product = products.find(
-      (item) => String(item.id) === String(productId)
+      (item) =>
+        String(item.id) ===
+        String(productId)
     );
 
     setForm({
@@ -110,7 +146,7 @@ function Purchases() {
       quantity: 1,
       purchasePrice: "",
       paymentMethod: "Cash",
-      purchaseDate: new Date().toISOString().split("T")[0],
+      purchaseDate: getISTDate(),
       notes: "",
     });
   };
@@ -134,33 +170,52 @@ function Purchases() {
     }
 
     if (purchasePrice < 0) {
-      alert("Purchase price cannot be negative.");
+      alert(
+        "Purchase price cannot be negative."
+      );
       return;
     }
 
     try {
       setSaving(true);
 
-      const response = await fetch(PURCHASES_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          supplier_name: form.supplierName.trim(),
-          product_id: Number(form.productId),
-          quantity,
-          purchase_price: purchasePrice,
-          payment_method: form.paymentMethod,
-          purchase_date: form.purchaseDate,
-          notes: form.notes.trim(),
-        }),
-      });
+      const response = await fetch(
+        PURCHASES_API,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            supplier_name:
+              form.supplierName.trim(),
+            product_id:
+              Number(form.productId),
+            quantity,
+            purchase_price:
+              purchasePrice,
+            payment_method:
+              form.paymentMethod,
+            purchase_date:
+              form.purchaseDate,
+            notes:
+              form.notes.trim(),
+          }),
+        }
+      );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to record purchase");
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            "Failed to record purchase"
+        );
       }
 
       alert(
@@ -174,64 +229,102 @@ function Purchases() {
 
       await loadData();
     } catch (error) {
-      console.error("Save purchase error:", error);
-      alert(error.message || "Unable to record purchase.");
+      console.error(
+        "Save purchase error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to record purchase."
+      );
     } finally {
       setSaving(false);
     }
   };
 
   const deletePurchase = async (id) => {
-    const confirmed = window.confirm(
-      "Delete this purchase?\n\nThe purchased quantity will be removed from inventory."
-    );
+    const confirmed =
+      window.confirm(
+        "Delete this purchase?\n\nThe purchased quantity will be removed from inventory."
+      );
 
     if (!confirmed) {
       return;
     }
 
     try {
-      const response = await fetch(`${PURCHASES_API}/${id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${PURCHASES_API}/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to delete purchase");
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            "Failed to delete purchase"
+        );
       }
 
-      alert("Purchase deleted and inventory adjusted.");
+      alert(
+        "Purchase deleted and inventory adjusted."
+      );
 
       await loadData();
     } catch (error) {
-      console.error("Delete purchase error:", error);
-      alert(error.message || "Unable to delete purchase.");
+      console.error(
+        "Delete purchase error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to delete purchase."
+      );
     }
   };
 
-  const filteredPurchases = purchases.filter((purchase) =>
-    `${purchase.product_name} ${purchase.category} ${purchase.supplier_name} ${purchase.payment_method}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const filteredPurchases =
+    purchases.filter((purchase) =>
+      `${purchase.product_name} ${purchase.category} ${purchase.supplier_name} ${purchase.payment_method}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
 
-  const totalPurchaseAmount = purchases.reduce(
-    (total, purchase) => total + Number(purchase.total_amount),
-    0
-  );
+  const totalPurchaseAmount =
+    purchases.reduce(
+      (total, purchase) =>
+        total +
+        Number(purchase.total_amount),
+      0
+    );
 
-  const totalItemsPurchased = purchases.reduce(
-    (total, purchase) => total + Number(purchase.quantity),
-    0
-  );
+  const totalItemsPurchased =
+    purchases.reduce(
+      (total, purchase) =>
+        total +
+        Number(purchase.quantity),
+      0
+    );
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <h1>Purchases</h1>
-          <p>Manage warehouse purchases and stock additions</p>
+
+          <p>
+            Manage warehouse purchases and
+            stock additions
+          </p>
         </div>
 
         <button
@@ -250,10 +343,20 @@ function Purchases() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Total Purchases</p>
-              <h2>₹{totalPurchaseAmount.toLocaleString("en-IN")}</h2>
+              <p className="stat-title">
+                Total Purchases
+              </p>
+
+              <h2>
+                ₹
+                {totalPurchaseAmount.toLocaleString(
+                  "en-IN"
+                )}
+              </h2>
+
               <p className="stat-subtitle">
-                Purchase investment recorded
+                Purchase investment
+                recorded
               </p>
             </div>
 
@@ -266,8 +369,14 @@ function Purchases() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Items Purchased</p>
-              <h2>{totalItemsPurchased}</h2>
+              <p className="stat-title">
+                Items Purchased
+              </p>
+
+              <h2>
+                {totalItemsPurchased}
+              </h2>
+
               <p className="stat-subtitle">
                 Total units purchased
               </p>
@@ -282,8 +391,14 @@ function Purchases() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Purchase Records</p>
-              <h2>{purchases.length}</h2>
+              <p className="stat-title">
+                Purchase Records
+              </p>
+
+              <h2>
+                {purchases.length}
+              </h2>
+
               <p className="stat-subtitle">
                 Transactions recorded
               </p>
@@ -299,8 +414,14 @@ function Purchases() {
       <div className="table-card">
         <div className="table-header">
           <div>
-            <h2>Purchase History</h2>
-            <p>All recorded warehouse purchases</p>
+            <h2>
+              Purchase History
+            </h2>
+
+            <p>
+              All recorded warehouse
+              purchases
+            </p>
           </div>
 
           <div className="search-box">
@@ -310,7 +431,9 @@ function Purchases() {
               type="text"
               placeholder="Search product, supplier..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
             />
           </div>
         </div>
@@ -319,15 +442,27 @@ function Purchases() {
           {loading ? (
             <div className="empty-state">
               <Package size={40} />
-              <h3>Loading purchases...</h3>
-              <p>Please wait.</p>
+
+              <h3>
+                Loading purchases...
+              </h3>
+
+              <p>
+                Please wait.
+              </p>
             </div>
-          ) : filteredPurchases.length === 0 ? (
+          ) : filteredPurchases.length ===
+            0 ? (
             <div className="empty-state">
               <Package size={40} />
-              <h3>No purchases found</h3>
+
+              <h3>
+                No purchases found
+              </h3>
+
               <p>
-                Click "New Purchase" to record your first
+                Click "New Purchase" to
+                record your first
                 purchase.
               </p>
             </div>
@@ -340,7 +475,9 @@ function Purchases() {
                   <th>Product</th>
                   <th>Category</th>
                   <th>Qty</th>
-                  <th>Purchase Price</th>
+                  <th>
+                    Purchase Price
+                  </th>
                   <th>Total</th>
                   <th>Payment</th>
                   <th>Action</th>
@@ -348,51 +485,89 @@ function Purchases() {
               </thead>
 
               <tbody>
-                {filteredPurchases.map((purchase) => (
-                  <tr key={purchase.id}>
-                    <td>{purchase.purchase_date}</td>
+                {filteredPurchases.map(
+                  (purchase) => (
+                    <tr
+                      key={
+                        purchase.id
+                      }
+                    >
+                      <td>
+                        {
+                          purchase.purchase_date
+                        }
+                      </td>
 
-                    <td>
-                      <strong>{purchase.supplier_name}</strong>
-                    </td>
+                      <td>
+                        <strong>
+                          {
+                            purchase.supplier_name
+                          }
+                        </strong>
+                      </td>
 
-                    <td>{purchase.product_name}</td>
+                      <td>
+                        {
+                          purchase.product_name
+                        }
+                      </td>
 
-                    <td>{purchase.category}</td>
+                      <td>
+                        {
+                          purchase.category
+                        }
+                      </td>
 
-                    <td>{purchase.quantity}</td>
+                      <td>
+                        {
+                          purchase.quantity
+                        }
+                      </td>
 
-                    <td>
-                      ₹
-                      {Number(
-                        purchase.purchase_price
-                      ).toLocaleString("en-IN")}
-                    </td>
-
-                    <td>
-                      <strong>
+                      <td>
                         ₹
                         {Number(
-                          purchase.total_amount
-                        ).toLocaleString("en-IN")}
-                      </strong>
-                    </td>
+                          purchase.purchase_price
+                        ).toLocaleString(
+                          "en-IN"
+                        )}
+                      </td>
 
-                    <td>{purchase.payment_method}</td>
+                      <td>
+                        <strong>
+                          ₹
+                          {Number(
+                            purchase.total_amount
+                          ).toLocaleString(
+                            "en-IN"
+                          )}
+                        </strong>
+                      </td>
 
-                    <td>
-                      <button
-                        className="icon-btn delete-btn"
-                        title="Delete Purchase"
-                        onClick={() =>
-                          deletePurchase(purchase.id)
+                      <td>
+                        {
+                          purchase.payment_method
                         }
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      <td>
+                        <button
+                          className="icon-btn delete-btn"
+                          title="Delete Purchase"
+                          onClick={() =>
+                            deletePurchase(
+                              purchase.id
+                            )
+                          }
+                        >
+                          <Trash2
+                            size={17}
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           )}
@@ -404,8 +579,14 @@ function Purchases() {
           <div className="modal">
             <div className="modal-header">
               <div>
-                <h2>New Purchase</h2>
-                <p>Add stock purchased from your supplier</p>
+                <h2>
+                  New Purchase
+                </h2>
+
+                <p>
+                  Add stock purchased
+                  from your supplier
+                </p>
               </div>
 
               <button
@@ -419,70 +600,107 @@ function Purchases() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form
+              onSubmit={handleSubmit}
+            >
               <div className="form-grid">
                 <div className="form-group full-width">
-                  <label>Supplier Name</label>
+                  <label>
+                    Supplier Name
+                  </label>
 
                   <input
                     type="text"
                     name="supplierName"
                     placeholder="e.g. ABC Wholesale"
-                    value={form.supplierName}
-                    onChange={handleChange}
+                    value={
+                      form.supplierName
+                    }
+                    onChange={
+                      handleChange
+                    }
                   />
                 </div>
 
                 <div className="form-group full-width">
-                  <label>Product</label>
+                  <label>
+                    Product
+                  </label>
 
                   <select
                     name="productId"
-                    value={form.productId}
-                    onChange={handleProductChange}
+                    value={
+                      form.productId
+                    }
+                    onChange={
+                      handleProductChange
+                    }
                   >
                     <option value="">
                       Select Product
                     </option>
 
-                    {products.map((product) => (
-                      <option
-                        key={product.id}
-                        value={product.id}
-                      >
-                        {product.product_name} —{" "}
-                        {product.category}
-                      </option>
-                    ))}
+                    {products.map(
+                      (product) => (
+                        <option
+                          key={
+                            product.id
+                          }
+                          value={
+                            product.id
+                          }
+                        >
+                          {
+                            product.product_name
+                          }{" "}
+                          —{" "}
+                          {
+                            product.category
+                          }
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
 
                 {selectedProduct && (
                   <div className="form-group">
-                    <label>Current Stock</label>
+                    <label>
+                      Current Stock
+                    </label>
 
                     <input
                       type="text"
-                      value={selectedProduct.current_stock}
+                      value={
+                        selectedProduct.current_stock
+                      }
                       readOnly
                     />
                   </div>
                 )}
 
                 <div className="form-group">
-                  <label>Quantity</label>
+                  <label>
+                    Quantity
+                  </label>
 
                   <input
                     type="number"
                     name="quantity"
                     min="1"
-                    value={form.quantity}
-                    onChange={handleChange}
+                    value={
+                      form.quantity
+                    }
+                    onChange={
+                      handleChange
+                    }
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Purchase Price / Item</label>
+                  <label>
+                    Purchase Price / Item
+                  </label>
 
                   <input
                     type="number"
@@ -490,44 +708,72 @@ function Purchases() {
                     min="0"
                     step="0.01"
                     placeholder="₹ Price per item"
-                    value={form.purchasePrice}
-                    onChange={handleChange}
+                    value={
+                      form.purchasePrice
+                    }
+                    onChange={
+                      handleChange
+                    }
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Payment Method</label>
+                  <label>
+                    Payment Method
+                  </label>
 
                   <select
                     name="paymentMethod"
-                    value={form.paymentMethod}
-                    onChange={handleChange}
+                    value={
+                      form.paymentMethod
+                    }
+                    onChange={
+                      handleChange
+                    }
                   >
-                    <option value="Cash">Cash</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Card</option>
+                    <option value="Cash">
+                      Cash
+                    </option>
+
+                    <option value="UPI">
+                      UPI
+                    </option>
+
+                    <option value="Card">
+                      Card
+                    </option>
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label>Purchase Date</label>
+                  <label>
+                    Purchase Date
+                  </label>
 
                   <input
                     type="date"
                     name="purchaseDate"
-                    value={form.purchaseDate}
-                    onChange={handleChange}
+                    value={
+                      form.purchaseDate
+                    }
+                    onChange={
+                      handleChange
+                    }
                   />
                 </div>
 
                 <div className="form-group full-width">
-                  <label>Notes</label>
+                  <label>
+                    Notes
+                  </label>
 
                   <textarea
                     name="notes"
                     placeholder="Optional notes..."
                     value={form.notes}
-                    onChange={handleChange}
+                    onChange={
+                      handleChange
+                    }
                     rows="3"
                   />
                 </div>
@@ -535,12 +781,20 @@ function Purchases() {
                 {form.productId && (
                   <div className="sale-summary full-width">
                     <div>
-                      <span>Quantity</span>
-                      <strong>{quantity}</strong>
+                      <span>
+                        Quantity
+                      </span>
+
+                      <strong>
+                        {quantity}
+                      </strong>
                     </div>
 
                     <div>
-                      <span>Price / Item</span>
+                      <span>
+                        Price / Item
+                      </span>
+
                       <strong>
                         ₹
                         {purchasePrice.toLocaleString(
@@ -550,7 +804,10 @@ function Purchases() {
                     </div>
 
                     <div>
-                      <span>Total Purchase</span>
+                      <span>
+                        Total Purchase
+                      </span>
+
                       <strong>
                         ₹
                         {totalAmount.toLocaleString(

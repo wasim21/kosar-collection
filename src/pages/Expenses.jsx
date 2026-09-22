@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Receipt } from "lucide-react";
 
-const EXPENSES_API = "http://localhost:5000/api/expenses";
+const EXPENSES_API = `${import.meta.env.VITE_API_URL}/api/expenses`;
+
+// Get today's date in Indian Standard Time
+const getISTDate = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+  }).format(new Date());
 
 function Expenses() {
   const [expenses, setExpenses] = useState([]);
@@ -12,7 +18,7 @@ function Expenses() {
     expense_type: "Electricity",
     amount: "",
     description: "",
-    expense_date: new Date().toISOString().split("T")[0],
+    expense_date: getISTDate(),
   });
 
   const loadExpenses = async () => {
@@ -80,7 +86,7 @@ function Expenses() {
         expense_type: "Electricity",
         amount: "",
         description: "",
-        expense_date: new Date().toISOString().split("T")[0],
+        expense_date: getISTDate(),
       });
 
       setShowModal(false);
@@ -122,14 +128,25 @@ function Expenses() {
     0
   );
 
-  const today = new Date().toISOString().split("T")[0];
+  // Today's date in IST
+  const today = getISTDate();
 
   const todayExpenses = expenses
-    .filter((expense) => expense.expense_date?.startsWith(today))
+    .filter((expense) => {
+      const expenseDate = String(expense.expense_date || "").slice(0, 10);
+      return expenseDate === today;
+    })
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  // Current month in IST
+  const istNow = new Date(
+    new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+    })
+  );
+
+  const currentMonth = istNow.getMonth();
+  const currentYear = istNow.getFullYear();
 
   const monthExpenses = expenses
     .filter((expense) => {
@@ -153,12 +170,12 @@ function Expenses() {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      timeZone: "Asia/Kolkata",
     });
   };
 
   return (
     <div className="page">
-
       <div className="page-header">
         <div>
           <h1>Expenses</h1>
@@ -176,7 +193,6 @@ function Expenses() {
 
       {/* Summary */}
       <div className="dashboard-cards">
-
         <div className="dashboard-card">
           <div className="dashboard-card-icon">
             <Receipt size={24} />
@@ -209,12 +225,10 @@ function Expenses() {
             <h2>{formatCurrency(todayExpenses)}</h2>
           </div>
         </div>
-
       </div>
 
       {/* Expense History */}
       <div className="dashboard-panel">
-
         <div className="panel-header">
           <div>
             <h3>Expense History</h3>
@@ -230,9 +244,7 @@ function Expenses() {
           </div>
         ) : (
           <div className="table-container">
-
             <table className="data-table">
-
               <thead>
                 <tr>
                   <th>Date</th>
@@ -246,25 +258,16 @@ function Expenses() {
               <tbody>
                 {expenses.map((expense) => (
                   <tr key={expense.id}>
+                    <td>{formatDate(expense.expense_date)}</td>
 
                     <td>
-                      {formatDate(expense.expense_date)}
+                      <strong>{expense.expense_type}</strong>
                     </td>
 
-                    <td>
-                      <strong>
-                        {expense.expense_type}
-                      </strong>
-                    </td>
+                    <td>{expense.description || "-"}</td>
 
                     <td>
-                      {expense.description || "-"}
-                    </td>
-
-                    <td>
-                      <strong>
-                        {formatCurrency(expense.amount)}
-                      </strong>
+                      <strong>{formatCurrency(expense.amount)}</strong>
                     </td>
 
                     <td>
@@ -276,24 +279,18 @@ function Expenses() {
                         <Trash2 size={17} />
                       </button>
                     </td>
-
                   </tr>
                 ))}
               </tbody>
-
             </table>
-
           </div>
         )}
-
       </div>
 
       {/* Add Expense Modal */}
       {showModal && (
         <div className="modal-overlay">
-
           <div className="modal">
-
             <div className="modal-header">
               <div>
                 <h2>Add Expense</h2>
@@ -303,13 +300,13 @@ function Expenses() {
               <button
                 className="modal-close"
                 onClick={() => setShowModal(false)}
+                type="button"
               >
                 ×
               </button>
             </div>
 
             <form onSubmit={handleSubmit}>
-
               <div className="form-group">
                 <label>Expense Type *</label>
 
@@ -369,7 +366,6 @@ function Expenses() {
               </div>
 
               <div className="modal-actions">
-
                 <button
                   type="button"
                   className="secondary-button"
@@ -384,16 +380,11 @@ function Expenses() {
                 >
                   Save Expense
                 </button>
-
               </div>
-
             </form>
-
           </div>
-
         </div>
       )}
-
     </div>
   );
 }
