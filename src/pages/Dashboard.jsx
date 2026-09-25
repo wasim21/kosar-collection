@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const DASHBOARD_API = `${import.meta.env.VITE_API_URL}/api/dashboard`;
+import { apiFetch } from "../utils/api";
 
 function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
@@ -12,20 +12,26 @@ function Dashboard() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(DASHBOARD_API);
-      const result = await response.json();
+      const result =
+        await apiFetch("/api/dashboard");
 
       if (!result.success) {
         throw new Error(
-          result.message || "Failed to load dashboard"
+          result.message ||
+            "Failed to load dashboard"
         );
       }
 
       setDashboard(result.dashboard);
     } catch (err) {
-      console.error("Dashboard error:", err);
+      console.error(
+        "Dashboard error:",
+        err
+      );
+
       setError(
-        "Unable to load dashboard data. Make sure the backend server is running."
+        err.message ||
+          "Unable to load dashboard data."
       );
     } finally {
       setLoading(false);
@@ -37,13 +43,16 @@ function Dashboard() {
   }, []);
 
   const formatCurrency = (value) => {
-    return `₹${Number(value || 0).toLocaleString(
-      "en-IN"
-    )}`;
+    return `₹${Number(
+      value || 0
+    ).toLocaleString("en-IN")}`;
   };
 
   const formatGrowth = (value) => {
-    if (value === null || value === undefined) {
+    if (
+      value === null ||
+      value === undefined
+    ) {
       return "Not comparable";
     }
 
@@ -56,6 +65,7 @@ function Dashboard() {
         <div className="page-header">
           <div>
             <h1>Dashboard</h1>
+
             <p>
               Welcome to KOSAR COLLECTION
             </p>
@@ -69,20 +79,25 @@ function Dashboard() {
     );
   }
 
-  if (error) {
+  if (error || !dashboard) {
     return (
       <div className="page">
         <div className="page-header">
           <div>
             <h1>Dashboard</h1>
+
             <p>
-              Welcome to KOSAR COLLECTION Smart Shop Manager
+              Welcome to KOSAR COLLECTION Smart
+              Shop Manager
             </p>
           </div>
         </div>
 
         <div className="empty-state">
-          <p>{error}</p>
+          <p>
+            {error ||
+              "Unable to load dashboard data."}
+          </p>
 
           <button
             className="primary-btn"
@@ -97,6 +112,7 @@ function Dashboard() {
 
   return (
     <div className="page">
+
       {/* =========================
           PAGE HEADER
       ========================= */}
@@ -104,8 +120,10 @@ function Dashboard() {
       <div className="page-header">
         <div>
           <h1>Dashboard</h1>
+
           <p>
-            Welcome to KOSAR COLLECTION Smart Shop Manager
+            Welcome to KOSAR COLLECTION Smart
+            Shop Manager
           </p>
         </div>
 
@@ -126,11 +144,13 @@ function Dashboard() {
         <div className="stat-card">
           <div className="stat-card-content">
             <p>Today's Sales</p>
+
             <h2>
               {formatCurrency(
                 dashboard.todaySales
               )}
             </h2>
+
             <span>
               Today's revenue
             </span>
@@ -140,11 +160,13 @@ function Dashboard() {
         <div className="stat-card">
           <div className="stat-card-content">
             <p>This Month's Sales</p>
+
             <h2>
               {formatCurrency(
                 dashboard.monthSales
               )}
             </h2>
+
             <span>
               Monthly revenue
             </span>
@@ -153,7 +175,10 @@ function Dashboard() {
 
         <div className="stat-card">
           <div className="stat-card-content">
-            <p>This Month's Net Profit</p>
+            <p>
+              This Month's Net Profit
+            </p>
+
             <h2
               className={
                 Number(
@@ -167,6 +192,7 @@ function Dashboard() {
                 dashboard.monthNetProfit
               )}
             </h2>
+
             <span>
               After expenses
             </span>
@@ -176,9 +202,11 @@ function Dashboard() {
         <div className="stat-card">
           <div className="stat-card-content">
             <p>Available Stock</p>
+
             <h2>
               {dashboard.availableStock}
             </h2>
+
             <span>
               Total units in inventory
             </span>
@@ -297,7 +325,9 @@ function Dashboard() {
         <div className="comparison-grid">
 
           <div className="comparison-card">
-            <p>Current Month Sales</p>
+            <p>
+              Current Month Sales
+            </p>
 
             <h3>
               {formatCurrency(
@@ -307,7 +337,9 @@ function Dashboard() {
           </div>
 
           <div className="comparison-card">
-            <p>Previous Month Sales</p>
+            <p>
+              Previous Month Sales
+            </p>
 
             <h3>
               {formatCurrency(
@@ -352,7 +384,8 @@ function Dashboard() {
             </h2>
 
             <p>
-              Today's sales and expense position
+              Today's sales and expense
+              position
             </p>
           </div>
         </div>
@@ -370,7 +403,9 @@ function Dashboard() {
           </div>
 
           <div className="comparison-card">
-            <p>Today's Gross Profit</p>
+            <p>
+              Today's Gross Profit
+            </p>
 
             <h3>
               {formatCurrency(
@@ -390,7 +425,9 @@ function Dashboard() {
           </div>
 
           <div className="comparison-card">
-            <p>Today's Net Profit</p>
+            <p>
+              Today's Net Profit
+            </p>
 
             <h3
               className={
@@ -431,7 +468,9 @@ function Dashboard() {
         <div className="comparison-grid">
 
           <div className="comparison-card">
-            <p>Best Selling Category</p>
+            <p>
+              Best Selling Category
+            </p>
 
             <h3>
               {dashboard.bestSellingCategory}
@@ -443,7 +482,9 @@ function Dashboard() {
           </div>
 
           <div className="comparison-card">
-            <p>Best Selling Product</p>
+            <p>
+              Best Selling Product
+            </p>
 
             <h3>
               {dashboard.bestSellingProduct
@@ -482,7 +523,9 @@ function Dashboard() {
           </div>
 
           <div className="comparison-card">
-            <p>Total Available Stock</p>
+            <p>
+              Total Available Stock
+            </p>
 
             <h3>
               {dashboard.availableStock}
@@ -523,20 +566,35 @@ function Dashboard() {
 
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Current Stock</th>
-                    <th>Minimum Stock</th>
+                    <th>
+                      Product
+                    </th>
+
+                    <th>
+                      Category
+                    </th>
+
+                    <th>
+                      Current Stock
+                    </th>
+
+                    <th>
+                      Minimum Stock
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {dashboard.lowStockProducts.map(
                     (item) => (
-                      <tr key={item.id}>
+                      <tr
+                        key={item.id}
+                      >
                         <td>
                           <strong>
-                            {item.product_name}
+                            {
+                              item.product_name
+                            }
                           </strong>
                         </td>
 
@@ -557,6 +615,7 @@ function Dashboard() {
                 </tbody>
 
               </table>
+
             </div>
           </section>
         )}

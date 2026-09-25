@@ -15,7 +15,36 @@ const reportsRoutes = require("./routes/reports");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+/* =========================
+   CORS
+========================= */
+
+const allowedOrigins = [
+  "https://wasim21.github.io",
+  "http://localhost:5173",
+  "http://localhost:5174",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header.
+      // Useful for direct API requests and server-to-server requests.
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(
+        new Error("Origin not allowed by CORS")
+      );
+    },
+  })
+);
+
 app.use(express.json());
 
 /* =========================
@@ -241,7 +270,8 @@ const authenticateToken = (
   ) {
     return res.status(401).json({
       success: false,
-      message: "Invalid authentication format.",
+      message:
+        "Invalid authentication format.",
     });
   }
 

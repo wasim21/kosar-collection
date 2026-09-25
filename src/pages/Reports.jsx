@@ -9,16 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const API_URL = import.meta.env.VITE_API_URL;
-
-const MONTHLY_API =
-  `${API_URL}/api/reports/monthly`;
-
-const CATEGORY_API =
-  `${API_URL}/api/reports/category-performance`;
-
-const PRODUCT_API =
-  `${API_URL}/api/reports/product-performance`;
+import { apiFetch } from "../utils/api";
 
 function Reports() {
   const [monthlyData, setMonthlyData] = useState([]);
@@ -50,23 +41,18 @@ function Reports() {
       setLoading(true);
 
       const [
-        monthlyResponse,
-        categoryResponse,
-        productResponse,
+        monthlyResult,
+        categoryResult,
+        productResult,
       ] = await Promise.all([
-        fetch(MONTHLY_API),
-        fetch(CATEGORY_API),
-        fetch(PRODUCT_API),
+        apiFetch("/api/reports/monthly"),
+        apiFetch(
+          "/api/reports/category-performance"
+        ),
+        apiFetch(
+          "/api/reports/product-performance"
+        ),
       ]);
-
-      const monthlyResult =
-        await monthlyResponse.json();
-
-      const categoryResult =
-        await categoryResponse.json();
-
-      const productResult =
-        await productResponse.json();
 
       /*
       ==============================================
@@ -148,6 +134,11 @@ function Reports() {
         "Reports loading error:",
         error
       );
+
+      alert(
+        error.message ||
+          "Unable to load reports."
+      );
     } finally {
       setLoading(false);
     }
@@ -204,7 +195,8 @@ function Reports() {
   const totalGrossProfit =
     monthlyData.reduce(
       (sum, item) =>
-        sum + Number(
+        sum +
+        Number(
           item.grossProfit || 0
         ),
       0
@@ -213,7 +205,8 @@ function Reports() {
   const totalExpenses =
     monthlyData.reduce(
       (sum, item) =>
-        sum + Number(
+        sum +
+        Number(
           item.expenses || 0
         ),
       0
@@ -284,7 +277,6 @@ function Reports() {
         </button>
       </div>
 
-
       {/* ==========================================
           FINANCIAL SUMMARY
       ========================================== */}
@@ -296,11 +288,12 @@ function Reports() {
             <p>Total Sales</p>
 
             <h2>
-              {formatCurrency(totalSales)}
+              {formatCurrency(
+                totalSales
+              )}
             </h2>
           </div>
         </div>
-
 
         <div className="stat-card">
           <div className="stat-card-content">
@@ -314,7 +307,6 @@ function Reports() {
           </div>
         </div>
 
-
         <div className="stat-card">
           <div className="stat-card-content">
             <p>Total Expenses</p>
@@ -326,7 +318,6 @@ function Reports() {
             </h2>
           </div>
         </div>
-
 
         <div className="stat-card">
           <div className="stat-card-content">
@@ -341,7 +332,6 @@ function Reports() {
         </div>
 
       </div>
-
 
       {/* ==========================================
           MONTHLY COMPARISON
@@ -361,7 +351,6 @@ function Reports() {
             </p>
           </div>
         </div>
-
 
         <div className="comparison-grid">
 
@@ -383,7 +372,6 @@ function Reports() {
             </span>
           </div>
 
-
           <div className="comparison-card">
             <p>
               Previous Month Sales
@@ -402,7 +390,6 @@ function Reports() {
             </span>
           </div>
 
-
           <div className="comparison-card">
             <p>
               Sales Growth
@@ -415,7 +402,6 @@ function Reports() {
                 : `${comparison?.salesGrowth}%`}
             </h3>
           </div>
-
 
           <div className="comparison-card">
             <p>
@@ -432,7 +418,6 @@ function Reports() {
 
         </div>
       </section>
-
 
       {/* ==========================================
           MONTHLY PERFORMANCE
@@ -452,60 +437,57 @@ function Reports() {
           </div>
         </div>
 
-
         {monthlyData.length > 0 ? (
-          <>
-            <div
-              style={{
-                width: "100%",
-                height: 350,
-              }}
-            >
-              <ResponsiveContainer>
-                <BarChart
-                  data={monthlyData}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
+          <div
+            style={{
+              width: "100%",
+              height: 350,
+            }}
+          >
+            <ResponsiveContainer>
+              <BarChart
+                data={monthlyData}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                />
 
-                  <XAxis
-                    dataKey="month"
-                    tickFormatter={(month) =>
-                      getMonthName(
-                        month
-                      ).slice(0, 3)
-                    }
-                  />
+                <XAxis
+                  dataKey="month"
+                  tickFormatter={(month) =>
+                    getMonthName(
+                      month
+                    ).slice(0, 3)
+                  }
+                />
 
-                  <YAxis />
+                <YAxis />
 
-                  <Tooltip
-                    formatter={(value) =>
-                      formatCurrency(
-                        value
-                      )
-                    }
-                  />
+                <Tooltip
+                  formatter={(value) =>
+                    formatCurrency(
+                      value
+                    )
+                  }
+                />
 
-                  <Bar
-                    dataKey="sales"
-                    name="Sales"
-                  />
+                <Bar
+                  dataKey="sales"
+                  name="Sales"
+                />
 
-                  <Bar
-                    dataKey="grossProfit"
-                    name="Gross Profit"
-                  />
+                <Bar
+                  dataKey="grossProfit"
+                  name="Gross Profit"
+                />
 
-                  <Bar
-                    dataKey="expenses"
-                    name="Expenses"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </>
+                <Bar
+                  dataKey="expenses"
+                  name="Expenses"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="empty-state">
             No monthly data available.
@@ -513,7 +495,6 @@ function Reports() {
         )}
 
       </section>
-
 
       {/* ==========================================
           BEST PERFORMING MONTH
@@ -534,7 +515,6 @@ function Reports() {
               </p>
             </div>
           </div>
-
 
           <div className="best-month-card">
 
@@ -558,7 +538,6 @@ function Reports() {
         </section>
       )}
 
-
       {/* ==========================================
           MONTHLY BUSINESS REPORT
       ========================================== */}
@@ -577,7 +556,6 @@ function Reports() {
             </p>
           </div>
         </div>
-
 
         <div className="table-wrapper">
 
@@ -610,7 +588,6 @@ function Reports() {
                 </th>
               </tr>
             </thead>
-
 
             <tbody>
 
@@ -681,7 +658,6 @@ function Reports() {
 
       </section>
 
-
       {/* ==========================================
           CATEGORY PERFORMANCE
       ========================================== */}
@@ -701,7 +677,6 @@ function Reports() {
             </p>
           </div>
         </div>
-
 
         {/* CATEGORY HIGHLIGHTS */}
 
@@ -728,7 +703,6 @@ function Reports() {
 
           </div>
 
-
           <div className="comparison-card">
 
             <p>
@@ -752,7 +726,6 @@ function Reports() {
 
           </div>
 
-
           <div className="comparison-card">
 
             <p>
@@ -775,7 +748,6 @@ function Reports() {
           </div>
 
         </div>
-
 
         {/* CATEGORY CHART */}
 
@@ -821,7 +793,6 @@ function Reports() {
           </div>
         )}
 
-
         {/* CATEGORY TABLE */}
 
         <div
@@ -861,7 +832,6 @@ function Reports() {
 
               </tr>
             </thead>
-
 
             <tbody>
 
@@ -931,7 +901,6 @@ function Reports() {
 
       </section>
 
-
       {/* ==========================================
           PRODUCT PERFORMANCE
       ========================================== */}
@@ -953,7 +922,6 @@ function Reports() {
           </div>
 
         </div>
-
 
         {/* PRODUCT HIGHLIGHTS */}
 
@@ -982,7 +950,6 @@ function Reports() {
 
           </div>
 
-
           <div className="comparison-card">
 
             <p>
@@ -1005,7 +972,6 @@ function Reports() {
             )}
 
           </div>
-
 
           <div className="comparison-card">
 
@@ -1030,7 +996,6 @@ function Reports() {
 
           </div>
 
-
           <div className="comparison-card">
 
             <p>
@@ -1048,7 +1013,6 @@ function Reports() {
           </div>
 
         </div>
-
 
         {/* PRODUCT SALES CHART */}
 
@@ -1093,7 +1057,6 @@ function Reports() {
             </ResponsiveContainer>
           </div>
         )}
-
 
         {/* PRODUCT TABLE */}
 
@@ -1141,7 +1104,6 @@ function Reports() {
               </tr>
 
             </thead>
-
 
             <tbody>
 
@@ -1214,7 +1176,6 @@ function Reports() {
 
         </div>
 
-
         {/* LOW STOCK PRODUCTS */}
 
         {lowStockProducts.length > 0 && (
@@ -1238,7 +1199,6 @@ function Reports() {
 
               </div>
             </div>
-
 
             <div className="table-wrapper">
 
@@ -1267,7 +1227,6 @@ function Reports() {
                   </tr>
 
                 </thead>
-
 
                 <tbody>
 
@@ -1310,7 +1269,6 @@ function Reports() {
           </div>
         )}
 
-
         {/* PRODUCTS WITH NO SALES */}
 
         {noSalesProducts.length > 0 && (
@@ -1336,7 +1294,6 @@ function Reports() {
               </div>
             </div>
 
-
             <div className="table-wrapper">
 
               <table className="data-table">
@@ -1360,7 +1317,6 @@ function Reports() {
                   </tr>
 
                 </thead>
-
 
                 <tbody>
 

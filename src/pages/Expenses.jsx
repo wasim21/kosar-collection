@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Receipt } from "lucide-react";
 
-const EXPENSES_API = `${import.meta.env.VITE_API_URL}/api/expenses`;
+import { apiFetch } from "../utils/api";
 
 // Get today's date in Indian Standard Time
 const getISTDate = () =>
@@ -25,14 +25,21 @@ function Expenses() {
     try {
       setLoading(true);
 
-      const response = await fetch(EXPENSES_API);
-      const data = await response.json();
+      const data = await apiFetch("/api/expenses");
 
       if (data.success) {
         setExpenses(data.expenses);
       }
     } catch (error) {
-      console.error("Failed to load expenses:", error);
+      console.error(
+        "Failed to load expenses:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to load expenses."
+      );
     } finally {
       setLoading(false);
     }
@@ -54,33 +61,45 @@ function Expenses() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.expense_type || !form.amount || !form.expense_date) {
-      alert("Please fill all required fields.");
+    if (
+      !form.expense_type ||
+      !form.amount ||
+      !form.expense_date
+    ) {
+      alert(
+        "Please fill all required fields."
+      );
       return;
     }
 
     try {
-      const response = await fetch(EXPENSES_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          expense_type: form.expense_type,
-          amount: Number(form.amount),
-          description: form.description,
-          expense_date: form.expense_date,
-        }),
-      });
-
-      const data = await response.json();
+      const data = await apiFetch(
+        "/api/expenses",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expense_type:
+              form.expense_type,
+            amount: Number(form.amount),
+            description:
+              form.description,
+            expense_date:
+              form.expense_date,
+          }),
+        }
+      );
 
       if (!data.success) {
-        alert(data.message || "Failed to add expense.");
+        alert(
+          data.message ||
+            "Failed to add expense."
+        );
         return;
       }
 
-      alert("Expense added successfully.");
+      alert(
+        "Expense added successfully."
+      );
 
       setForm({
         expense_type: "Electricity",
@@ -90,41 +109,62 @@ function Expenses() {
       });
 
       setShowModal(false);
-      loadExpenses();
+
+      await loadExpenses();
     } catch (error) {
-      console.error("Add expense error:", error);
-      alert("Unable to add expense.");
+      console.error(
+        "Add expense error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to add expense."
+      );
     }
   };
 
   const deleteExpense = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this expense?"
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this expense?"
+      );
 
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`${EXPENSES_API}/${id}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
+      const data = await apiFetch(
+        `/api/expenses/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!data.success) {
-        alert(data.message || "Failed to delete expense.");
+        alert(
+          data.message ||
+            "Failed to delete expense."
+        );
         return;
       }
 
-      loadExpenses();
+      await loadExpenses();
     } catch (error) {
-      console.error("Delete expense error:", error);
-      alert("Unable to delete expense.");
+      console.error(
+        "Delete expense error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to delete expense."
+      );
     }
   };
 
   const totalExpenses = expenses.reduce(
-    (sum, expense) => sum + Number(expense.amount || 0),
+    (sum, expense) =>
+      sum + Number(expense.amount || 0),
     0
   );
 
@@ -133,45 +173,73 @@ function Expenses() {
 
   const todayExpenses = expenses
     .filter((expense) => {
-      const expenseDate = String(expense.expense_date || "").slice(0, 10);
+      const expenseDate = String(
+        expense.expense_date || ""
+      ).slice(0, 10);
+
       return expenseDate === today;
     })
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce(
+      (sum, expense) =>
+        sum + Number(expense.amount || 0),
+      0
+    );
 
   // Current month in IST
   const istNow = new Date(
-    new Date().toLocaleString("en-US", {
-      timeZone: "Asia/Kolkata",
-    })
+    new Date().toLocaleString(
+      "en-US",
+      {
+        timeZone: "Asia/Kolkata",
+      }
+    )
   );
 
-  const currentMonth = istNow.getMonth();
-  const currentYear = istNow.getFullYear();
+  const currentMonth =
+    istNow.getMonth();
+
+  const currentYear =
+    istNow.getFullYear();
 
   const monthExpenses = expenses
     .filter((expense) => {
-      const date = new Date(expense.expense_date);
+      const date = new Date(
+        expense.expense_date
+      );
 
       return (
-        date.getMonth() === currentMonth &&
-        date.getFullYear() === currentYear
+        date.getMonth() ===
+          currentMonth &&
+        date.getFullYear() ===
+          currentYear
       );
     })
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    .reduce(
+      (sum, expense) =>
+        sum + Number(expense.amount || 0),
+      0
+    );
 
   const formatCurrency = (amount) => {
-    return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
+    return `₹${Number(
+      amount || 0
+    ).toLocaleString("en-IN")}`;
   };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
+    const date = new Date(
+      dateString
+    );
 
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "Asia/Kolkata",
-    });
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: "Asia/Kolkata",
+      }
+    );
   };
 
   return (
@@ -179,12 +247,17 @@ function Expenses() {
       <div className="page-header">
         <div>
           <h1>Expenses</h1>
-          <p>Manage your shop expenses</p>
+
+          <p>
+            Manage your shop expenses
+          </p>
         </div>
 
         <button
           className="primary-button"
-          onClick={() => setShowModal(true)}
+          onClick={() =>
+            setShowModal(true)
+          }
         >
           <Plus size={18} />
           Add Expense
@@ -200,7 +273,12 @@ function Expenses() {
 
           <div>
             <p>Total Expenses</p>
-            <h2>{formatCurrency(totalExpenses)}</h2>
+
+            <h2>
+              {formatCurrency(
+                totalExpenses
+              )}
+            </h2>
           </div>
         </div>
 
@@ -211,7 +289,12 @@ function Expenses() {
 
           <div>
             <p>This Month</p>
-            <h2>{formatCurrency(monthExpenses)}</h2>
+
+            <h2>
+              {formatCurrency(
+                monthExpenses
+              )}
+            </h2>
           </div>
         </div>
 
@@ -222,7 +305,12 @@ function Expenses() {
 
           <div>
             <p>Today's Expenses</p>
-            <h2>{formatCurrency(todayExpenses)}</h2>
+
+            <h2>
+              {formatCurrency(
+                todayExpenses
+              )}
+            </h2>
           </div>
         </div>
       </div>
@@ -231,14 +319,22 @@ function Expenses() {
       <div className="dashboard-panel">
         <div className="panel-header">
           <div>
-            <h3>Expense History</h3>
-            <p>All recorded shop expenses</p>
+            <h3>
+              Expense History
+            </h3>
+
+            <p>
+              All recorded shop expenses
+            </p>
           </div>
         </div>
 
         {loading ? (
-          <p>Loading expenses...</p>
-        ) : expenses.length === 0 ? (
+          <p>
+            Loading expenses...
+          </p>
+        ) : expenses.length ===
+          0 ? (
           <div className="empty-state">
             No expenses recorded yet.
           </div>
@@ -248,39 +344,72 @@ function Expenses() {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Expense Type</th>
-                  <th>Description</th>
+                  <th>
+                    Expense Type
+                  </th>
+                  <th>
+                    Description
+                  </th>
                   <th>Amount</th>
                   <th>Action</th>
                 </tr>
               </thead>
 
               <tbody>
-                {expenses.map((expense) => (
-                  <tr key={expense.id}>
-                    <td>{formatDate(expense.expense_date)}</td>
+                {expenses.map(
+                  (expense) => (
+                    <tr
+                      key={
+                        expense.id
+                      }
+                    >
+                      <td>
+                        {formatDate(
+                          expense.expense_date
+                        )}
+                      </td>
 
-                    <td>
-                      <strong>{expense.expense_type}</strong>
-                    </td>
+                      <td>
+                        <strong>
+                          {
+                            expense.expense_type
+                          }
+                        </strong>
+                      </td>
 
-                    <td>{expense.description || "-"}</td>
+                      <td>
+                        {
+                          expense.description ||
+                          "-"
+                        }
+                      </td>
 
-                    <td>
-                      <strong>{formatCurrency(expense.amount)}</strong>
-                    </td>
+                      <td>
+                        <strong>
+                          {formatCurrency(
+                            expense.amount
+                          )}
+                        </strong>
+                      </td>
 
-                    <td>
-                      <button
-                        className="delete-button"
-                        onClick={() => deleteExpense(expense.id)}
-                        title="Delete expense"
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td>
+                        <button
+                          className="delete-button"
+                          onClick={() =>
+                            deleteExpense(
+                              expense.id
+                            )
+                          }
+                          title="Delete expense"
+                        >
+                          <Trash2
+                            size={17}
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           </div>
@@ -293,47 +422,89 @@ function Expenses() {
           <div className="modal">
             <div className="modal-header">
               <div>
-                <h2>Add Expense</h2>
-                <p>Record a shop expense</p>
+                <h2>
+                  Add Expense
+                </h2>
+
+                <p>
+                  Record a shop expense
+                </p>
               </div>
 
               <button
                 className="modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={() =>
+                  setShowModal(false)
+                }
                 type="button"
               >
                 ×
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form
+              onSubmit={handleSubmit}
+            >
               <div className="form-group">
-                <label>Expense Type *</label>
+                <label>
+                  Expense Type *
+                </label>
 
                 <select
                   name="expense_type"
-                  value={form.expense_type}
-                  onChange={handleChange}
+                  value={
+                    form.expense_type
+                  }
+                  onChange={
+                    handleChange
+                  }
                 >
-                  <option>Electricity</option>
-                  <option>Shop Rent</option>
-                  <option>Staff Salary</option>
-                  <option>Transport</option>
-                  <option>Packaging</option>
-                  <option>Maintenance</option>
-                  <option>Marketing</option>
-                  <option>Other</option>
+                  <option>
+                    Electricity
+                  </option>
+
+                  <option>
+                    Shop Rent
+                  </option>
+
+                  <option>
+                    Staff Salary
+                  </option>
+
+                  <option>
+                    Transport
+                  </option>
+
+                  <option>
+                    Packaging
+                  </option>
+
+                  <option>
+                    Maintenance
+                  </option>
+
+                  <option>
+                    Marketing
+                  </option>
+
+                  <option>
+                    Other
+                  </option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label>Amount *</label>
+                <label>
+                  Amount *
+                </label>
 
                 <input
                   type="number"
                   name="amount"
                   value={form.amount}
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Enter amount"
                   min="1"
                   step="0.01"
@@ -342,25 +513,37 @@ function Expenses() {
               </div>
 
               <div className="form-group">
-                <label>Description</label>
+                <label>
+                  Description
+                </label>
 
                 <textarea
                   name="description"
-                  value={form.description}
-                  onChange={handleChange}
+                  value={
+                    form.description
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Enter description"
                   rows="3"
                 />
               </div>
 
               <div className="form-group">
-                <label>Date *</label>
+                <label>
+                  Date *
+                </label>
 
                 <input
                   type="date"
                   name="expense_date"
-                  value={form.expense_date}
-                  onChange={handleChange}
+                  value={
+                    form.expense_date
+                  }
+                  onChange={
+                    handleChange
+                  }
                   required
                 />
               </div>
@@ -369,7 +552,9 @@ function Expenses() {
                 <button
                   type="button"
                   className="secondary-button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() =>
+                    setShowModal(false)
+                  }
                 >
                   Cancel
                 </button>

@@ -8,8 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-const PURCHASES_API =
-  `${import.meta.env.VITE_API_URL}/api/purchases`;
+import { apiFetch } from "../utils/api";
 
 // Get today's date according to Indian Standard Time (IST)
 const getISTDate = () =>
@@ -39,14 +38,7 @@ function Purchases() {
 
   const fetchPurchases = async () => {
     try {
-      const response = await fetch(PURCHASES_API);
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to fetch purchases"
-        );
-      }
+      const data = await apiFetch("/api/purchases");
 
       setPurchases(data.purchases);
     } catch (error) {
@@ -57,17 +49,9 @@ function Purchases() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(
-        `${PURCHASES_API}/products`
+      const data = await apiFetch(
+        "/api/purchases/products"
       );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to fetch products"
-        );
-      }
 
       setProducts(data.products);
     } catch (error) {
@@ -179,14 +163,10 @@ function Purchases() {
     try {
       setSaving(true);
 
-      const response = await fetch(
-        PURCHASES_API,
+      const data = await apiFetch(
+        "/api/purchases",
         {
           method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
           body: JSON.stringify({
             supplier_name:
               form.supplierName.trim(),
@@ -204,19 +184,6 @@ function Purchases() {
           }),
         }
       );
-
-      const data =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-        throw new Error(
-          data.message ||
-            "Failed to record purchase"
-        );
-      }
 
       alert(
         `Purchase recorded successfully!\nTotal: ₹${Number(
@@ -254,25 +221,12 @@ function Purchases() {
     }
 
     try {
-      const response = await fetch(
-        `${PURCHASES_API}/${id}`,
+      await apiFetch(
+        `/api/purchases/${id}`,
         {
           method: "DELETE",
         }
       );
-
-      const data =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-        throw new Error(
-          data.message ||
-            "Failed to delete purchase"
-        );
-      }
 
       alert(
         "Purchase deleted and inventory adjusted."

@@ -2,35 +2,23 @@ import { NavLink } from "react-router-dom";
 
 function Sidebar() {
   const menuItems = [
-    {
-      name: "Dashboard",
-      path: "/",
-    },
-    {
-      name: "Sales",
-      path: "/sales",
-    },
-    {
-      name: "Purchases",
-      path: "/purchases",
-    },
-    {
-      name: "Inventory",
-      path: "/inventory",
-    },
-    {
-      name: "Expenses",
-      path: "/expenses",
-    },
-    {
-      name: "Reports",
-      path: "/reports",
-    },
+    { name: "Dashboard", path: "/" },
+    { name: "Sales", path: "/sales" },
+    { name: "Purchases", path: "/purchases" },
+    { name: "Inventory", path: "/inventory" },
+    { name: "Expenses", path: "/expenses" },
+    { name: "Reports", path: "/reports" },
   ];
+
+  const handleLogout = () => {
+    localStorage.removeItem("kosar_token");
+    localStorage.removeItem("kosar_user");
+
+    window.location.hash = "#/login";
+  };
 
   return (
     <aside className="sidebar">
-      {/* LOGO */}
       <div className="sidebar-logo">
         <div>
           <h2>KOSAR</h2>
@@ -38,14 +26,15 @@ function Sidebar() {
         </div>
       </div>
 
-      {/* NAVIGATION */}
       <nav className="sidebar-nav">
         {menuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              isActive ? "nav-item active" : "nav-item"
+              isActive
+                ? "nav-item active"
+                : "nav-item"
             }
           >
             <span>{item.name}</span>
@@ -53,10 +42,17 @@ function Sidebar() {
         ))}
       </nav>
 
-      {/* FOOTER */}
       <div className="sidebar-footer">
-        <p>© 2026 WaseemCodes</p>
-        <span></span>
+        <p>Mohammad Waseem Shaikh</p>
+        <span>Owner & Developer</span>
+
+        <button
+          type="button"
+          className="logout-button"
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
       </div>
     </aside>
   );

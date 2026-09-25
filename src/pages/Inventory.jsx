@@ -9,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 
-const API_URL =  import.meta.env.VITE_API_URL;
+import { apiFetch } from "../utils/api";
 
 function Inventory() {
   const [products, setProducts] = useState([]);
@@ -45,17 +45,22 @@ function Inventory() {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/api/products`);
-      const data = await response.json();
+      const data = await apiFetch("/api/products");
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to fetch products");
+      if (!data.success) {
+        throw new Error(
+          data.message || "Failed to fetch products"
+        );
       }
 
       setProducts(data.products);
     } catch (error) {
       console.error("Fetch products error:", error);
-      alert("Unable to load products from the server.");
+
+      alert(
+        error.message ||
+          "Unable to load products from the server."
+      );
     } finally {
       setLoading(false);
     }
@@ -112,24 +117,21 @@ function Inventory() {
         minimum_stock: Number(form.minStock),
       };
 
-      const url = editingId
-  ?       `${API_URL}/api/products/${editingId}`
-  :       `${API_URL}/api/products`;
+      const endpoint = editingId
+        ? `/api/products/${editingId}`
+        : "/api/products";
 
       const method = editingId ? "PUT" : "POST";
 
-      const response = await fetch(url, {
+      const data = await apiFetch(endpoint, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(productData),
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to save product");
+      if (!data.success) {
+        throw new Error(
+          data.message || "Failed to save product"
+        );
       }
 
       await fetchProducts();
@@ -144,7 +146,11 @@ function Inventory() {
       );
     } catch (error) {
       console.error("Save product error:", error);
-      alert(error.message || "Unable to save product.");
+
+      alert(
+        error.message ||
+          "Unable to save product."
+      );
     } finally {
       setSaving(false);
     }
@@ -175,14 +181,17 @@ function Inventory() {
     }
 
     try {
-     const response = await fetch(`${API_URL}/api/products/${id}`, {
-        method: "DELETE",
-      });
+      const data = await apiFetch(
+        `/api/products/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to delete product");
+      if (!data.success) {
+        throw new Error(
+          data.message || "Failed to delete product"
+        );
       }
 
       await fetchProducts();
@@ -190,7 +199,11 @@ function Inventory() {
       alert("Product deleted successfully.");
     } catch (error) {
       console.error("Delete product error:", error);
-      alert(error.message || "Unable to delete product.");
+
+      alert(
+        error.message ||
+          "Unable to delete product."
+      );
     }
   };
 
@@ -203,18 +216,21 @@ function Inventory() {
   const totalProducts = products.length;
 
   const totalStock = products.reduce(
-    (total, product) => total + Number(product.current_stock),
+    (total, product) =>
+      total + Number(product.current_stock),
     0
   );
 
   const lowStock = products.filter(
     (product) =>
       Number(product.current_stock) > 0 &&
-      Number(product.current_stock) <= Number(product.minimum_stock)
+      Number(product.current_stock) <=
+        Number(product.minimum_stock)
   ).length;
 
   const outOfStock = products.filter(
-    (product) => Number(product.current_stock) === 0
+    (product) =>
+      Number(product.current_stock) === 0
   ).length;
 
   const inventoryValue = products.reduce(
@@ -253,8 +269,12 @@ function Inventory() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Total Products</p>
+              <p className="stat-title">
+                Total Products
+              </p>
+
               <h2>{totalProducts}</h2>
+
               <p className="stat-subtitle">
                 Products in inventory
               </p>
@@ -269,8 +289,12 @@ function Inventory() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Total Stock</p>
+              <p className="stat-title">
+                Total Stock
+              </p>
+
               <h2>{totalStock}</h2>
+
               <p className="stat-subtitle">
                 Items available
               </p>
@@ -285,8 +309,12 @@ function Inventory() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Low Stock</p>
+              <p className="stat-title">
+                Low Stock
+              </p>
+
               <h2>{lowStock}</h2>
+
               <p className="stat-subtitle">
                 Products need attention
               </p>
@@ -301,10 +329,17 @@ function Inventory() {
         <div className="stat-card">
           <div className="stat-top">
             <div>
-              <p className="stat-title">Inventory Value</p>
+              <p className="stat-title">
+                Inventory Value
+              </p>
+
               <h2>
-                ₹{inventoryValue.toLocaleString("en-IN")}
+                ₹
+                {inventoryValue.toLocaleString(
+                  "en-IN"
+                )}
               </h2>
+
               <p className="stat-subtitle">
                 Purchase cost of stock
               </p>
@@ -324,7 +359,9 @@ function Inventory() {
         <div className="table-header">
           <div>
             <h2>Products</h2>
-            <p>Current inventory and pricing</p>
+            <p>
+              Current inventory and pricing
+            </p>
           </div>
 
           <div className="search-box">
@@ -334,7 +371,9 @@ function Inventory() {
               type="text"
               placeholder="Search product or category..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
             />
           </div>
         </div>
@@ -344,8 +383,14 @@ function Inventory() {
           {loading ? (
             <div className="empty-state">
               <Package size={40} />
-              <h3>Loading products...</h3>
-              <p>Please wait.</p>
+
+              <h3>
+                Loading products...
+              </h3>
+
+              <p>
+                Please wait.
+              </p>
             </div>
           ) : (
             <table className="data-table">
@@ -364,105 +409,148 @@ function Inventory() {
 
               <tbody>
 
-                {filteredProducts.map((product) => {
+                {filteredProducts.map(
+                  (product) => {
 
-                  let status = "In Stock";
-                  let statusClass = "stock-good";
+                    let status = "In Stock";
+                    let statusClass =
+                      "stock-good";
 
-                  if (Number(product.current_stock) === 0) {
-                    status = "Out of Stock";
-                    statusClass = "stock-out";
-                  } else if (
-                    Number(product.current_stock) <=
-                    Number(product.minimum_stock)
-                  ) {
-                    status = "Low Stock";
-                    statusClass = "stock-low";
+                    if (
+                      Number(
+                        product.current_stock
+                      ) === 0
+                    ) {
+                      status =
+                        "Out of Stock";
+
+                      statusClass =
+                        "stock-out";
+                    } else if (
+                      Number(
+                        product.current_stock
+                      ) <=
+                      Number(
+                        product.minimum_stock
+                      )
+                    ) {
+                      status =
+                        "Low Stock";
+
+                      statusClass =
+                        "stock-low";
+                    }
+
+                    return (
+                      <tr
+                        key={product.id}
+                      >
+
+                        <td>
+                          <strong>
+                            {
+                              product.product_name
+                            }
+                          </strong>
+                        </td>
+
+                        <td>
+                          {product.category}
+                        </td>
+
+                        <td>
+                          ₹
+                          {Number(
+                            product.purchase_price
+                          ).toLocaleString(
+                            "en-IN"
+                          )}
+                        </td>
+
+                        <td>
+                          ₹
+                          {Number(
+                            product.selling_price
+                          ).toLocaleString(
+                            "en-IN"
+                          )}
+                        </td>
+
+                        <td>
+                          <strong>
+                            {
+                              product.current_stock
+                            }
+                          </strong>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`stock-badge ${statusClass}`}
+                          >
+                            {status}
+                          </span>
+                        </td>
+
+                        <td>
+                          <div className="table-actions">
+
+                            <button
+                              className="icon-btn"
+                              title="Edit"
+                              onClick={() =>
+                                editProduct(
+                                  product
+                                )
+                              }
+                            >
+                              <Edit size={17} />
+                            </button>
+
+                            <button
+                              className="icon-btn delete-btn"
+                              title="Delete"
+                              onClick={() =>
+                                deleteProduct(
+                                  product.id
+                                )
+                              }
+                            >
+                              <Trash2
+                                size={17}
+                              />
+                            </button>
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
                   }
-
-                  return (
-                    <tr key={product.id}>
-
-                      <td>
-                        <strong>
-                          {product.product_name}
-                        </strong>
-                      </td>
-
-                      <td>{product.category}</td>
-
-                      <td>
-                        ₹
-                        {Number(
-                          product.purchase_price
-                        ).toLocaleString("en-IN")}
-                      </td>
-
-                      <td>
-                        ₹
-                        {Number(
-                          product.selling_price
-                        ).toLocaleString("en-IN")}
-                      </td>
-
-                      <td>
-                        <strong>
-                          {product.current_stock}
-                        </strong>
-                      </td>
-
-                      <td>
-                        <span
-                          className={`stock-badge ${statusClass}`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="table-actions">
-
-                          <button
-                            className="icon-btn"
-                            title="Edit"
-                            onClick={() =>
-                              editProduct(product)
-                            }
-                          >
-                            <Edit size={17} />
-                          </button>
-
-                          <button
-                            className="icon-btn delete-btn"
-                            title="Delete"
-                            onClick={() =>
-                              deleteProduct(product.id)
-                            }
-                          >
-                            <Trash2 size={17} />
-                          </button>
-
-                        </div>
-                      </td>
-
-                    </tr>
-                  );
-                })}
+                )}
 
               </tbody>
 
             </table>
           )}
 
-          {!loading && filteredProducts.length === 0 && (
-            <div className="empty-state">
-              <Package size={40} />
-              <h3>No products found</h3>
-              <p>
-                Add a product or change your search.
-              </p>
-            </div>
-          )}
+          {!loading &&
+            filteredProducts.length === 0 && (
+              <div className="empty-state">
+
+                <Package size={40} />
+
+                <h3>
+                  No products found
+                </h3>
+
+                <p>
+                  Add a product or change
+                  your search.
+                </p>
+
+              </div>
+            )}
 
         </div>
       </div>
@@ -474,7 +562,9 @@ function Inventory() {
           <div className="modal">
 
             <div className="modal-header">
+
               <div>
+
                 <h2>
                   {editingId
                     ? "Edit Product"
@@ -486,6 +576,7 @@ function Inventory() {
                     ? "Update product information"
                     : "Add a product to your inventory"}
                 </p>
+
               </div>
 
               <button
@@ -497,6 +588,7 @@ function Inventory() {
               >
                 <X size={20} />
               </button>
+
             </div>
 
             <form onSubmit={handleSubmit}>
@@ -504,7 +596,10 @@ function Inventory() {
               <div className="form-grid">
 
                 <div className="form-group full-width">
-                  <label>Product Name</label>
+
+                  <label>
+                    Product Name
+                  </label>
 
                   <input
                     type="text"
@@ -513,33 +608,45 @@ function Inventory() {
                     value={form.name}
                     onChange={handleChange}
                   />
+
                 </div>
 
                 <div className="form-group">
-                  <label>Category</label>
+
+                  <label>
+                    Category
+                  </label>
 
                   <select
                     name="category"
                     value={form.category}
                     onChange={handleChange}
                   >
+
                     <option value="">
                       Select Category
                     </option>
 
-                    {categories.map((category) => (
-                      <option
-                        key={category}
-                        value={category}
-                      >
-                        {category}
-                      </option>
-                    ))}
+                    {categories.map(
+                      (category) => (
+                        <option
+                          key={category}
+                          value={category}
+                        >
+                          {category}
+                        </option>
+                      )
+                    )}
+
                   </select>
+
                 </div>
 
                 <div className="form-group">
-                  <label>Opening Stock</label>
+
+                  <label>
+                    Opening Stock
+                  </label>
 
                   <input
                     type="number"
@@ -549,10 +656,14 @@ function Inventory() {
                     value={form.stock}
                     onChange={handleChange}
                   />
+
                 </div>
 
                 <div className="form-group">
-                  <label>Purchase Price</label>
+
+                  <label>
+                    Purchase Price
+                  </label>
 
                   <input
                     type="number"
@@ -560,13 +671,19 @@ function Inventory() {
                     min="0"
                     step="0.01"
                     placeholder="₹ Cost per item"
-                    value={form.purchasePrice}
+                    value={
+                      form.purchasePrice
+                    }
                     onChange={handleChange}
                   />
+
                 </div>
 
                 <div className="form-group">
-                  <label>Selling Price</label>
+
+                  <label>
+                    Selling Price
+                  </label>
 
                   <input
                     type="number"
@@ -574,13 +691,19 @@ function Inventory() {
                     min="0"
                     step="0.01"
                     placeholder="₹ Selling price"
-                    value={form.sellingPrice}
+                    value={
+                      form.sellingPrice
+                    }
                     onChange={handleChange}
                   />
+
                 </div>
 
                 <div className="form-group">
-                  <label>Minimum Stock Level</label>
+
+                  <label>
+                    Minimum Stock Level
+                  </label>
 
                   <input
                     type="number"
@@ -590,6 +713,7 @@ function Inventory() {
                     value={form.minStock}
                     onChange={handleChange}
                   />
+
                 </div>
 
               </div>
@@ -613,6 +737,7 @@ function Inventory() {
                   className="primary-btn"
                   disabled={saving}
                 >
+
                   <Plus size={18} />
 
                   {saving
@@ -620,6 +745,7 @@ function Inventory() {
                     : editingId
                     ? "Update Product"
                     : "Add Product"}
+
                 </button>
 
               </div>
@@ -627,6 +753,7 @@ function Inventory() {
             </form>
 
           </div>
+
         </div>
       )}
 
