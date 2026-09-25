@@ -3,6 +3,7 @@ const mysql = require("mysql2/promise");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 
 require("dotenv").config();
 
@@ -28,8 +29,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an Origin header.
-      // Useful for direct API requests and server-to-server requests.
       if (!origin) {
         return callback(null, true);
       }
@@ -124,6 +123,22 @@ const getISTMonthInfo = () => {
    AUTHENTICATION
 ========================= */
 
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+
+  max: 10,
+
+  standardHeaders: true,
+
+  legacyHeaders: false,
+
+  message: {
+    success: false,
+    message:
+      "Too many login attempts. Please try again after 15 minutes.",
+  },
+});
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
@@ -176,10 +191,6 @@ const initializeUsersTable = async () => {
         [adminUsername]
       );
 
-    /* -------------------------
-       CREATE ADMIN IF MISSING
-    ------------------------- */
-
     if (existingUsers.length === 0) {
       const passwordHash =
         await bcrypt.hash(
@@ -203,13 +214,7 @@ const initializeUsersTable = async () => {
       console.log(
         `Admin user "${adminUsername}" created successfully.`
       );
-    }
-
-    /* -------------------------
-       SYNCHRONIZE ADMIN PASSWORD
-    ------------------------- */
-
-    else {
+    } else {
       const passwordHash =
         await bcrypt.hash(
           adminPassword,
@@ -302,6 +307,7 @@ const authenticateToken = (
 
 app.post(
   "/api/auth/login",
+  loginRateLimiter,
   async (req, res) => {
     try {
       const {
@@ -514,10 +520,6 @@ app.get(
         previousMonthStart,
       } = getISTMonthInfo();
 
-      /* -------------------------
-         TODAY'S SALES
-      ------------------------- */
-
       const [[todaySales]] =
         await db.query(
           `
@@ -531,10 +533,6 @@ app.get(
           `,
           [today]
         );
-
-      /* -------------------------
-         TODAY'S GROSS PROFIT
-      ------------------------- */
 
       const [[todayGrossProfit]] =
         await db.query(
@@ -550,10 +548,6 @@ app.get(
           [today]
         );
 
-      /* -------------------------
-         TODAY'S EXPENSES
-      ------------------------- */
-
       const [[todayExpenses]] =
         await db.query(
           `
@@ -568,10 +562,6 @@ app.get(
           [today]
         );
 
-      /* -------------------------
-         TODAY'S NET PROFIT
-      ------------------------- */
-
       const todayNetProfit =
         Number(
           todayGrossProfit.total
@@ -579,10 +569,6 @@ app.get(
         Number(
           todayExpenses.total
         );
-
-      /* -------------------------
-         CURRENT MONTH SALES
-      ------------------------- */
 
       const [[monthSales]] =
         await db.query(
@@ -606,10 +592,6 @@ app.get(
           ]
         );
 
-      /* -------------------------
-         CURRENT MONTH GROSS PROFIT
-      ------------------------- */
-
       const [[monthGrossProfit]] =
         await db.query(
           `
@@ -631,10 +613,6 @@ app.get(
             currentMonthStart,
           ]
         );
-
-      /* -------------------------
-         CURRENT MONTH EXPENSES
-      ------------------------- */
 
       const [[monthExpenses]] =
         await db.query(
@@ -658,10 +636,6 @@ app.get(
           ]
         );
 
-      /* -------------------------
-         CURRENT MONTH NET PROFIT
-      ------------------------- */
-
       const monthNetProfit =
         Number(
           monthGrossProfit.total
@@ -669,10 +643,6 @@ app.get(
         Number(
           monthExpenses.total
         );
-
-      /* -------------------------
-         PREVIOUS MONTH SALES
-      ------------------------- */
 
       const [[previousMonthSales]] =
         await db.query(
@@ -696,10 +666,6 @@ app.get(
           ]
         );
 
-      /* -------------------------
-         PREVIOUS MONTH GROSS PROFIT
-      ------------------------- */
-
       const [[previousMonthGrossProfit]] =
         await db.query(
           `
@@ -721,10 +687,6 @@ app.get(
             previousMonthStart,
           ]
         );
-
-      /* -------------------------
-         PREVIOUS MONTH EXPENSES
-      ------------------------- */
 
       const [[previousMonthExpenses]] =
         await db.query(
@@ -748,10 +710,6 @@ app.get(
           ]
         );
 
-      /* -------------------------
-         PREVIOUS MONTH NET PROFIT
-      ------------------------- */
-
       const previousMonthNetProfit =
         Number(
           previousMonthGrossProfit.total
@@ -759,10 +717,6 @@ app.get(
         Number(
           previousMonthExpenses.total
         );
-
-      /* -------------------------
-         SALES GROWTH
-      ------------------------- */
 
       let salesGrowth = null;
 
@@ -789,10 +743,6 @@ app.get(
             ).toFixed(2)
           );
       }
-
-      /* -------------------------
-         PROFIT GROWTH
-      ------------------------- */
 
       let profitGrowth = null;
 
@@ -822,10 +772,6 @@ app.get(
           );
       }
 
-      /* -------------------------
-         AVAILABLE STOCK
-      ------------------------- */
-
       const [[stock]] =
         await db.query(`
           SELECT
@@ -836,10 +782,6 @@ app.get(
           FROM products
         `);
 
-      /* -------------------------
-         LOW STOCK ITEMS
-      ------------------------- */
-
       const [[lowStock]] =
         await db.query(`
           SELECT
@@ -847,10 +789,6 @@ app.get(
           FROM products
           WHERE current_stock <= minimum_stock
         `);
-
-      /* -------------------------
-         BEST SELLING CATEGORY
-      ------------------------- */
 
       const [bestCategory] =
         await db.query(`
@@ -862,10 +800,6 @@ app.get(
           ORDER BY items_sold DESC
           LIMIT 1
         `);
-
-      /* -------------------------
-         BEST SELLING PRODUCT
-      ------------------------- */
 
       const [bestProduct] =
         await db.query(`
@@ -884,10 +818,6 @@ app.get(
           LIMIT 1
         `);
 
-      /* -------------------------
-         LOW STOCK PRODUCT LIST
-      ------------------------- */
-
       const [lowStockProducts] =
         await db.query(`
           SELECT
@@ -900,10 +830,6 @@ app.get(
           WHERE current_stock <= minimum_stock
           ORDER BY current_stock ASC
         `);
-
-      /* -------------------------
-         SMART BUSINESS INSIGHT
-      ------------------------- */
 
       let insight =
         "Start recording sales and expenses to generate business insights.";
@@ -948,10 +874,6 @@ app.get(
       ) {
         insight += ` ${bestCategory[0].category} is currently your best-selling category.`;
       }
-
-      /* -------------------------
-         RESPONSE
-      ------------------------- */
 
       res.json({
         success: true,
