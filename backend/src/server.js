@@ -122,12 +122,6 @@ const initializeUsersTable = async () => {
       "Users table is ready."
     );
 
-    /*
-    ------------------------------------------
-    CREATE ADMIN USER IF IT DOES NOT EXIST
-    ------------------------------------------
-    */
-
     const adminUsername =
       process.env.ADMIN_USERNAME;
 
@@ -153,6 +147,10 @@ const initializeUsersTable = async () => {
         [adminUsername]
       );
 
+    /* -------------------------
+       CREATE ADMIN IF MISSING
+    ------------------------- */
+
     if (existingUsers.length === 0) {
       const passwordHash =
         await bcrypt.hash(
@@ -176,9 +174,33 @@ const initializeUsersTable = async () => {
       console.log(
         `Admin user "${adminUsername}" created successfully.`
       );
-    } else {
+    }
+
+    /* -------------------------
+       SYNCHRONIZE ADMIN PASSWORD
+    ------------------------- */
+
+    else {
+      const passwordHash =
+        await bcrypt.hash(
+          adminPassword,
+          12
+        );
+
+      await db.query(
+        `
+        UPDATE users
+        SET password_hash = ?
+        WHERE username = ?
+        `,
+        [
+          passwordHash,
+          adminUsername,
+        ]
+      );
+
       console.log(
-        `Admin user "${adminUsername}" already exists.`
+        `Admin user "${adminUsername}" password synchronized successfully.`
       );
     }
   } catch (error) {
@@ -723,17 +745,15 @@ app.get(
           Number(
             (
               (
-                (
-                  Number(
-                    monthSales.total
-                  ) -
-                  Number(
-                    previousMonthSales.total
-                  )
-                ) /
+                Number(
+                  monthSales.total
+                ) -
                 Number(
                   previousMonthSales.total
                 )
+              ) /
+              Number(
+                previousMonthSales.total
               ) *
               100
             ).toFixed(2)
@@ -755,18 +775,16 @@ app.get(
           Number(
             (
               (
-                (
-                  Number(
-                    monthNetProfit
-                  ) -
-                  Number(
-                    previousMonthNetProfit
-                  )
-                ) /
-                Math.abs(
-                  Number(
-                    previousMonthNetProfit
-                  )
+                Number(
+                  monthNetProfit
+                ) -
+                Number(
+                  previousMonthNetProfit
+                )
+              ) /
+              Math.abs(
+                Number(
+                  previousMonthNetProfit
                 )
               ) *
               100
