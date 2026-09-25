@@ -1,6 +1,9 @@
 const express = require("express");
 const mysql = require("mysql2/promise");
 const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+
 require("dotenv").config();
 
 const productsRoutes = require("./routes/products");
@@ -14,6 +17,10 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+/* =========================
+   DATABASE
+========================= */
 
 const db = mysql.createPool({
   host: process.env.DB_HOST,
@@ -34,6 +41,10 @@ const db = mysql.createPool({
   queueLimit: 0,
 });
 
+/* =========================
+   DATABASE MIDDLEWARE
+========================= */
+
 app.use((req, res, next) => {
   req.db = db;
   next();
@@ -51,9 +62,12 @@ const getISTDate = () =>
 const getISTMonthInfo = () => {
   const today = getISTDate();
 
-  const [year, month, day] = today.split("-").map(Number);
+  const [year, month] = today
+    .split("-")
+    .map(Number);
 
-  const currentMonthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const currentMonthStart =
+    `${year}-${String(month).padStart(2, "0")}-01`;
 
   let previousYear = year;
   let previousMonth = month - 1;
@@ -78,14 +92,312 @@ const getISTMonthInfo = () => {
 };
 
 /* =========================
-   API ROUTES
+   AUTHENTICATION
 ========================= */
 
-app.use("/api/products", productsRoutes);
-app.use("/api/sales", salesRoutes);
-app.use("/api/purchases", purchasesRoutes);
-app.use("/api/expenses", expensesRoutes);
-app.use("/api/reports", reportsRoutes);
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error(
+    "ERROR: JWT_SECRET is not configured."
+  );
+}
+
+/* =========================
+   CREATE USERS TABLE
+========================= */
+
+const initializeUsersTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log(
+      "Users table is ready."
+    );
+
+    /*
+    ------------------------------------------
+    CREATE ADMIN USER IF IT DOES NOT EXIST
+    ------------------------------------------
+    */
+
+    const adminUsername =
+      process.env.ADMIN_USERNAME;
+
+    const adminPassword =
+      process.env.ADMIN_PASSWORD;
+
+    if (!adminUsername || !adminPassword) {
+      console.warn(
+        "ADMIN_USERNAME or ADMIN_PASSWORD is not configured. Admin user was not created."
+      );
+
+      return;
+    }
+
+    const [existingUsers] =
+      await db.query(
+        `
+        SELECT id
+        FROM users
+        WHERE username = ?
+        LIMIT 1
+        `,
+        [adminUsername]
+      );
+
+    if (existingUsers.length === 0) {
+      const passwordHash =
+        await bcrypt.hash(
+          adminPassword,
+          12
+        );
+
+      await db.query(
+        `
+        INSERT INTO users
+          (username, password_hash)
+        VALUES
+          (?, ?)
+        `,
+        [
+          adminUsername,
+          passwordHash,
+        ]
+      );
+
+      console.log(
+        `Admin user "${adminUsername}" created successfully.`
+      );
+    } else {
+      console.log(
+        `Admin user "${adminUsername}" already exists.`
+      );
+    }
+  } catch (error) {
+    console.error(
+      "User table initialization error:",
+      error.message
+    );
+
+    throw error;
+  }
+};
+
+/* =========================
+   AUTH MIDDLEWARE
+========================= */
+
+const authenticateToken = (
+  req,
+  res,
+  next
+) => {
+  const authHeader =
+    req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required.",
+    });
+  }
+
+  const parts =
+    authHeader.split(" ");
+
+  if (
+    parts.length !== 2 ||
+    parts[0] !== "Bearer"
+  ) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid authentication format.",
+    });
+  }
+
+  const token = parts[1];
+
+  try {
+    const decoded =
+      jwt.verify(
+        token,
+        JWT_SECRET
+      );
+
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message:
+        "Invalid or expired authentication token.",
+    });
+  }
+};
+
+/* =========================
+   AUTH LOGIN
+========================= */
+
+app.post(
+  "/api/auth/login",
+  async (req, res) => {
+    try {
+      const {
+        username,
+        password,
+      } = req.body;
+
+      if (
+        !username ||
+        !password
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Username and password are required.",
+        });
+      }
+
+      const [users] =
+        await db.query(
+          `
+          SELECT
+            id,
+            username,
+            password_hash
+          FROM users
+          WHERE username = ?
+          LIMIT 1
+          `,
+          [username]
+        );
+
+      if (users.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Invalid username or password.",
+        });
+      }
+
+      const user = users[0];
+
+      const passwordMatches =
+        await bcrypt.compare(
+          password,
+          user.password_hash
+        );
+
+      if (!passwordMatches) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "Invalid username or password.",
+        });
+      }
+
+      if (!JWT_SECRET) {
+        return res.status(500).json({
+          success: false,
+          message:
+            "Authentication service is not configured.",
+        });
+      }
+
+      const token =
+        jwt.sign(
+          {
+            userId: user.id,
+            username: user.username,
+          },
+          JWT_SECRET,
+          {
+            expiresIn: "7d",
+          }
+        );
+
+      res.json({
+        success: true,
+        message: "Login successful.",
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Login error:",
+        error.message
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Login failed.",
+      });
+    }
+  }
+);
+
+/* =========================
+   AUTH CHECK
+========================= */
+
+app.get(
+  "/api/auth/me",
+  authenticateToken,
+  (req, res) => {
+    res.json({
+      success: true,
+      user: req.user,
+    });
+  }
+);
+
+/* =========================
+   PROTECTED API ROUTES
+========================= */
+
+app.use(
+  "/api/products",
+  authenticateToken,
+  productsRoutes
+);
+
+app.use(
+  "/api/sales",
+  authenticateToken,
+  salesRoutes
+);
+
+app.use(
+  "/api/purchases",
+  authenticateToken,
+  purchasesRoutes
+);
+
+app.use(
+  "/api/expenses",
+  authenticateToken,
+  expensesRoutes
+);
+
+app.use(
+  "/api/reports",
+  authenticateToken,
+  reportsRoutes
+);
 
 /* =========================
    HOME
@@ -93,7 +405,8 @@ app.use("/api/reports", reportsRoutes);
 
 app.get("/", (req, res) => {
   res.json({
-    message: "KOSAR COLLECTION API is running",
+    message:
+      "KOSAR COLLECTION API is running",
   });
 });
 
@@ -101,427 +414,629 @@ app.get("/", (req, res) => {
    DATABASE TEST
 ========================= */
 
-app.get("/api/test-db", async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      "SELECT DATABASE() AS database_name"
-    );
+app.get(
+  "/api/test-db",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const [rows] =
+        await db.query(
+          "SELECT DATABASE() AS database_name"
+        );
 
-    res.json({
-      success: true,
-      message: "MySQL connected successfully",
-      database: rows[0].database_name,
-    });
-  } catch (error) {
-    console.error("Database error:", error.message);
+      res.json({
+        success: true,
+        message:
+          "MySQL connected successfully",
+        database:
+          rows[0].database_name,
+      });
+    } catch (error) {
+      console.error(
+        "Database error:",
+        error.message
+      );
 
-    res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-      error: error.message,
-    });
+      res.status(500).json({
+        success: false,
+        message:
+          "Database connection failed",
+        error: error.message,
+      });
+    }
   }
-});
+);
 
 /* =========================
    DASHBOARD
 ========================= */
 
-app.get("/api/dashboard", async (req, res) => {
-  try {
-    const {
-      today,
-      currentMonthStart,
-      previousMonthStart,
-    } = getISTMonthInfo();
+app.get(
+  "/api/dashboard",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const {
+        today,
+        currentMonthStart,
+        previousMonthStart,
+      } = getISTMonthInfo();
 
-    /* -------------------------
-       TODAY'S SALES
-    ------------------------- */
+      /* -------------------------
+         TODAY'S SALES
+      ------------------------- */
 
-    const [[todaySales]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(total_amount), 0) AS total
-      FROM sales
-      WHERE sale_date = ?
-      `,
-      [today]
-    );
+      const [[todaySales]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(total_amount),
+              0
+            ) AS total
+          FROM sales
+          WHERE sale_date = ?
+          `,
+          [today]
+        );
 
-    /* -------------------------
-       TODAY'S GROSS PROFIT
-    ------------------------- */
+      /* -------------------------
+         TODAY'S GROSS PROFIT
+      ------------------------- */
 
-    const [[todayGrossProfit]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(gross_profit), 0) AS total
-      FROM sales
-      WHERE sale_date = ?
-      `,
-      [today]
-    );
+      const [[todayGrossProfit]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(gross_profit),
+              0
+            ) AS total
+          FROM sales
+          WHERE sale_date = ?
+          `,
+          [today]
+        );
 
-    /* -------------------------
-       TODAY'S EXPENSES
-    ------------------------- */
+      /* -------------------------
+         TODAY'S EXPENSES
+      ------------------------- */
 
-    const [[todayExpenses]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(amount), 0) AS total
-      FROM expenses
-      WHERE expense_date = ?
-      `,
-      [today]
-    );
+      const [[todayExpenses]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(amount),
+              0
+            ) AS total
+          FROM expenses
+          WHERE expense_date = ?
+          `,
+          [today]
+        );
 
-    /* -------------------------
-       TODAY'S NET PROFIT
-    ------------------------- */
+      /* -------------------------
+         TODAY'S NET PROFIT
+      ------------------------- */
 
-    const todayNetProfit =
-      Number(todayGrossProfit.total) -
-      Number(todayExpenses.total);
-
-    /* -------------------------
-       CURRENT MONTH SALES
-    ------------------------- */
-
-    const [[monthSales]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(total_amount), 0) AS total
-      FROM sales
-      WHERE sale_date >= ?
-        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
-      `,
-      [currentMonthStart, currentMonthStart]
-    );
-
-    /* -------------------------
-       CURRENT MONTH GROSS PROFIT
-    ------------------------- */
-
-    const [[monthGrossProfit]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(gross_profit), 0) AS total
-      FROM sales
-      WHERE sale_date >= ?
-        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
-      `,
-      [currentMonthStart, currentMonthStart]
-    );
-
-    /* -------------------------
-       CURRENT MONTH EXPENSES
-    ------------------------- */
-
-    const [[monthExpenses]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(amount), 0) AS total
-      FROM expenses
-      WHERE expense_date >= ?
-        AND expense_date < DATE_ADD(?, INTERVAL 1 MONTH)
-      `,
-      [currentMonthStart, currentMonthStart]
-    );
-
-    /* -------------------------
-       CURRENT MONTH NET PROFIT
-    ------------------------- */
-
-    const monthNetProfit =
-      Number(monthGrossProfit.total) -
-      Number(monthExpenses.total);
-
-    /* -------------------------
-       PREVIOUS MONTH SALES
-    ------------------------- */
-
-    const [[previousMonthSales]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(total_amount), 0) AS total
-      FROM sales
-      WHERE sale_date >= ?
-        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
-      `,
-      [previousMonthStart, previousMonthStart]
-    );
-
-    /* -------------------------
-       PREVIOUS MONTH GROSS PROFIT
-    ------------------------- */
-
-    const [[previousMonthGrossProfit]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(gross_profit), 0) AS total
-      FROM sales
-      WHERE sale_date >= ?
-        AND sale_date < DATE_ADD(?, INTERVAL 1 MONTH)
-      `,
-      [previousMonthStart, previousMonthStart]
-    );
-
-    /* -------------------------
-       PREVIOUS MONTH EXPENSES
-    ------------------------- */
-
-    const [[previousMonthExpenses]] = await db.query(
-      `
-      SELECT
-        COALESCE(SUM(amount), 0) AS total
-      FROM expenses
-      WHERE expense_date >= ?
-        AND expense_date < DATE_ADD(?, INTERVAL 1 MONTH)
-      `,
-      [previousMonthStart, previousMonthStart]
-    );
-
-    /* -------------------------
-       PREVIOUS MONTH NET PROFIT
-    ------------------------- */
-
-    const previousMonthNetProfit =
-      Number(previousMonthGrossProfit.total) -
-      Number(previousMonthExpenses.total);
-
-    /* -------------------------
-       SALES GROWTH
-    ------------------------- */
-
-    let salesGrowth = null;
-
-    if (Number(previousMonthSales.total) > 0) {
-      salesGrowth = Number(
-        (
-          ((Number(monthSales.total) -
-            Number(previousMonthSales.total)) /
-            Number(previousMonthSales.total)) *
-          100
-        ).toFixed(2)
-      );
-    }
-
-    /* -------------------------
-       PROFIT GROWTH
-    ------------------------- */
-
-    let profitGrowth = null;
-
-    if (Number(previousMonthNetProfit) !== 0) {
-      profitGrowth = Number(
-        (
-          ((Number(monthNetProfit) -
-            Number(previousMonthNetProfit)) /
-            Math.abs(Number(previousMonthNetProfit))) *
-          100
-        ).toFixed(2)
-      );
-    }
-
-    /* -------------------------
-       AVAILABLE STOCK
-    ------------------------- */
-
-    const [[stock]] = await db.query(`
-      SELECT
-        COALESCE(SUM(current_stock), 0) AS total
-      FROM products
-    `);
-
-    /* -------------------------
-       LOW STOCK ITEMS
-    ------------------------- */
-
-    const [[lowStock]] = await db.query(`
-      SELECT
-        COUNT(*) AS total
-      FROM products
-      WHERE current_stock <= minimum_stock
-    `);
-
-    /* -------------------------
-       BEST SELLING CATEGORY
-    ------------------------- */
-
-    const [bestCategory] = await db.query(`
-      SELECT
-        category,
-        SUM(quantity) AS items_sold
-      FROM sales
-      GROUP BY category
-      ORDER BY items_sold DESC
-      LIMIT 1
-    `);
-
-    /* -------------------------
-       BEST SELLING PRODUCT
-    ------------------------- */
-
-    const [bestProduct] = await db.query(`
-      SELECT
-        s.product_id,
-        p.product_name,
-        SUM(s.quantity) AS items_sold,
-        SUM(s.total_amount) AS sales
-      FROM sales s
-      INNER JOIN products p
-        ON s.product_id = p.id
-      GROUP BY
-        s.product_id,
-        p.product_name
-      ORDER BY items_sold DESC
-      LIMIT 1
-    `);
-
-    /* -------------------------
-       LOW STOCK PRODUCT LIST
-    ------------------------- */
-
-    const [lowStockProducts] = await db.query(`
-      SELECT
-        id,
-        product_name,
-        category,
-        current_stock,
-        minimum_stock
-      FROM products
-      WHERE current_stock <= minimum_stock
-      ORDER BY current_stock ASC
-    `);
-
-    /* -------------------------
-       SMART BUSINESS INSIGHT
-    ------------------------- */
-
-    let insight =
-      "Start recording sales and expenses to generate business insights.";
-
-    if (Number(monthSales.total) > 0) {
-      if (Number(monthNetProfit) > 0) {
-        insight =
-          "Your shop is currently generating a positive net profit this month. Continue monitoring your best-selling products and maintain sufficient stock.";
-      } else if (Number(monthNetProfit) < 0) {
-        insight =
-          "Your current monthly expenses are higher than your gross profit. Review expenses and focus on higher-margin products.";
-      } else {
-        insight =
-          "Your shop is currently at break-even after expenses. Monitor product margins and operating costs carefully.";
-      }
-    }
-
-    if (Number(lowStock.total) > 0) {
-      insight += ` ${Number(
-        lowStock.total
-      )} product(s) are currently at or below the minimum stock level.`;
-    }
-
-    if (bestCategory.length > 0) {
-      insight += ` ${bestCategory[0].category} is currently your best-selling category.`;
-    }
-
-    /* -------------------------
-       RESPONSE
-    ------------------------- */
-
-    res.json({
-      success: true,
-
-      dashboard: {
-        todaySales: Number(todaySales.total),
-
-        todayGrossProfit: Number(
+      const todayNetProfit =
+        Number(
           todayGrossProfit.total
-        ),
-
-        todayExpenses: Number(
+        ) -
+        Number(
           todayExpenses.total
-        ),
+        );
 
-        todayNetProfit,
+      /* -------------------------
+         CURRENT MONTH SALES
+      ------------------------- */
 
-        monthSales: Number(
-          monthSales.total
-        ),
+      const [[monthSales]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(total_amount),
+              0
+            ) AS total
+          FROM sales
+          WHERE sale_date >= ?
+            AND sale_date <
+              DATE_ADD(
+                ?,
+                INTERVAL 1 MONTH
+              )
+          `,
+          [
+            currentMonthStart,
+            currentMonthStart,
+          ]
+        );
 
-        monthGrossProfit: Number(
+      /* -------------------------
+         CURRENT MONTH GROSS PROFIT
+      ------------------------- */
+
+      const [[monthGrossProfit]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(gross_profit),
+              0
+            ) AS total
+          FROM sales
+          WHERE sale_date >= ?
+            AND sale_date <
+              DATE_ADD(
+                ?,
+                INTERVAL 1 MONTH
+              )
+          `,
+          [
+            currentMonthStart,
+            currentMonthStart,
+          ]
+        );
+
+      /* -------------------------
+         CURRENT MONTH EXPENSES
+      ------------------------- */
+
+      const [[monthExpenses]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(amount),
+              0
+            ) AS total
+          FROM expenses
+          WHERE expense_date >= ?
+            AND expense_date <
+              DATE_ADD(
+                ?,
+                INTERVAL 1 MONTH
+              )
+          `,
+          [
+            currentMonthStart,
+            currentMonthStart,
+          ]
+        );
+
+      /* -------------------------
+         CURRENT MONTH NET PROFIT
+      ------------------------- */
+
+      const monthNetProfit =
+        Number(
           monthGrossProfit.total
-        ),
-
-        monthExpenses: Number(
+        ) -
+        Number(
           monthExpenses.total
-        ),
+        );
 
-        monthNetProfit,
+      /* -------------------------
+         PREVIOUS MONTH SALES
+      ------------------------- */
 
-        previousMonthSales: Number(
+      const [[previousMonthSales]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(total_amount),
+              0
+            ) AS total
+          FROM sales
+          WHERE sale_date >= ?
+            AND sale_date <
+              DATE_ADD(
+                ?,
+                INTERVAL 1 MONTH
+              )
+          `,
+          [
+            previousMonthStart,
+            previousMonthStart,
+          ]
+        );
+
+      /* -------------------------
+         PREVIOUS MONTH GROSS PROFIT
+      ------------------------- */
+
+      const [[previousMonthGrossProfit]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(gross_profit),
+              0
+            ) AS total
+          FROM sales
+          WHERE sale_date >= ?
+            AND sale_date <
+              DATE_ADD(
+                ?,
+                INTERVAL 1 MONTH
+              )
+          `,
+          [
+            previousMonthStart,
+            previousMonthStart,
+          ]
+        );
+
+      /* -------------------------
+         PREVIOUS MONTH EXPENSES
+      ------------------------- */
+
+      const [[previousMonthExpenses]] =
+        await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(amount),
+              0
+            ) AS total
+          FROM expenses
+          WHERE expense_date >= ?
+            AND expense_date <
+              DATE_ADD(
+                ?,
+                INTERVAL 1 MONTH
+              )
+          `,
+          [
+            previousMonthStart,
+            previousMonthStart,
+          ]
+        );
+
+      /* -------------------------
+         PREVIOUS MONTH NET PROFIT
+      ------------------------- */
+
+      const previousMonthNetProfit =
+        Number(
+          previousMonthGrossProfit.total
+        ) -
+        Number(
+          previousMonthExpenses.total
+        );
+
+      /* -------------------------
+         SALES GROWTH
+      ------------------------- */
+
+      let salesGrowth = null;
+
+      if (
+        Number(
           previousMonthSales.total
-        ),
+        ) > 0
+      ) {
+        salesGrowth =
+          Number(
+            (
+              (
+                (
+                  Number(
+                    monthSales.total
+                  ) -
+                  Number(
+                    previousMonthSales.total
+                  )
+                ) /
+                Number(
+                  previousMonthSales.total
+                )
+              ) *
+              100
+            ).toFixed(2)
+          );
+      }
 
-        previousMonthNetProfit,
+      /* -------------------------
+         PROFIT GROWTH
+      ------------------------- */
 
-        salesGrowth,
+      let profitGrowth = null;
 
-        profitGrowth,
+      if (
+        Number(
+          previousMonthNetProfit
+        ) !== 0
+      ) {
+        profitGrowth =
+          Number(
+            (
+              (
+                (
+                  Number(
+                    monthNetProfit
+                  ) -
+                  Number(
+                    previousMonthNetProfit
+                  )
+                ) /
+                Math.abs(
+                  Number(
+                    previousMonthNetProfit
+                  )
+                )
+              ) *
+              100
+            ).toFixed(2)
+          );
+      }
 
-        availableStock: Number(
-          stock.total
-        ),
+      /* -------------------------
+         AVAILABLE STOCK
+      ------------------------- */
 
-        lowStockItems: Number(
+      const [[stock]] =
+        await db.query(`
+          SELECT
+            COALESCE(
+              SUM(current_stock),
+              0
+            ) AS total
+          FROM products
+        `);
+
+      /* -------------------------
+         LOW STOCK ITEMS
+      ------------------------- */
+
+      const [[lowStock]] =
+        await db.query(`
+          SELECT
+            COUNT(*) AS total
+          FROM products
+          WHERE current_stock <= minimum_stock
+        `);
+
+      /* -------------------------
+         BEST SELLING CATEGORY
+      ------------------------- */
+
+      const [bestCategory] =
+        await db.query(`
+          SELECT
+            category,
+            SUM(quantity) AS items_sold
+          FROM sales
+          GROUP BY category
+          ORDER BY items_sold DESC
+          LIMIT 1
+        `);
+
+      /* -------------------------
+         BEST SELLING PRODUCT
+      ------------------------- */
+
+      const [bestProduct] =
+        await db.query(`
+          SELECT
+            s.product_id,
+            p.product_name,
+            SUM(s.quantity) AS items_sold,
+            SUM(s.total_amount) AS sales
+          FROM sales s
+          INNER JOIN products p
+            ON s.product_id = p.id
+          GROUP BY
+            s.product_id,
+            p.product_name
+          ORDER BY items_sold DESC
+          LIMIT 1
+        `);
+
+      /* -------------------------
+         LOW STOCK PRODUCT LIST
+      ------------------------- */
+
+      const [lowStockProducts] =
+        await db.query(`
+          SELECT
+            id,
+            product_name,
+            category,
+            current_stock,
+            minimum_stock
+          FROM products
+          WHERE current_stock <= minimum_stock
+          ORDER BY current_stock ASC
+        `);
+
+      /* -------------------------
+         SMART BUSINESS INSIGHT
+      ------------------------- */
+
+      let insight =
+        "Start recording sales and expenses to generate business insights.";
+
+      if (
+        Number(
+          monthSales.total
+        ) > 0
+      ) {
+        if (
+          Number(
+            monthNetProfit
+          ) > 0
+        ) {
+          insight =
+            "Your shop is currently generating a positive net profit this month. Continue monitoring your best-selling products and maintain sufficient stock.";
+        } else if (
+          Number(
+            monthNetProfit
+          ) < 0
+        ) {
+          insight =
+            "Your current monthly expenses are higher than your gross profit. Review expenses and focus on higher-margin products.";
+        } else {
+          insight =
+            "Your shop is currently at break-even after expenses. Monitor product margins and operating costs carefully.";
+        }
+      }
+
+      if (
+        Number(
           lowStock.total
-        ),
+        ) > 0
+      ) {
+        insight += ` ${Number(
+          lowStock.total
+        )} product(s) are currently at or below the minimum stock level.`;
+      }
 
-        bestSellingCategory:
-          bestCategory.length
-            ? bestCategory[0].category
-            : "No sales yet",
+      if (
+        bestCategory.length > 0
+      ) {
+        insight += ` ${bestCategory[0].category} is currently your best-selling category.`;
+      }
 
-        bestSellingProduct:
-          bestProduct.length
-            ? {
-                productName:
-                  bestProduct[0].product_name,
-                itemsSold: Number(
-                  bestProduct[0].items_sold
-                ),
-                sales: Number(
-                  bestProduct[0].sales
-                ),
-              }
-            : null,
+      /* -------------------------
+         RESPONSE
+      ------------------------- */
 
-        lowStockProducts,
+      res.json({
+        success: true,
 
-        insight,
-      },
-    });
-  } catch (error) {
-    console.error(
-      "Dashboard error:",
-      error.message
-    );
+        dashboard: {
+          todaySales:
+            Number(
+              todaySales.total
+            ),
 
-    res.status(500).json({
-      success: false,
-      message: "Failed to load dashboard data",
-      error: error.message,
-    });
+          todayGrossProfit:
+            Number(
+              todayGrossProfit.total
+            ),
+
+          todayExpenses:
+            Number(
+              todayExpenses.total
+            ),
+
+          todayNetProfit,
+
+          monthSales:
+            Number(
+              monthSales.total
+            ),
+
+          monthGrossProfit:
+            Number(
+              monthGrossProfit.total
+            ),
+
+          monthExpenses:
+            Number(
+              monthExpenses.total
+            ),
+
+          monthNetProfit,
+
+          previousMonthSales:
+            Number(
+              previousMonthSales.total
+            ),
+
+          previousMonthNetProfit,
+
+          salesGrowth,
+
+          profitGrowth,
+
+          availableStock:
+            Number(
+              stock.total
+            ),
+
+          lowStockItems:
+            Number(
+              lowStock.total
+            ),
+
+          bestSellingCategory:
+            bestCategory.length
+              ? bestCategory[0]
+                  .category
+              : "No sales yet",
+
+          bestSellingProduct:
+            bestProduct.length
+              ? {
+                  productName:
+                    bestProduct[0]
+                      .product_name,
+
+                  itemsSold:
+                    Number(
+                      bestProduct[0]
+                        .items_sold
+                    ),
+
+                  sales:
+                    Number(
+                      bestProduct[0]
+                        .sales
+                    ),
+                }
+              : null,
+
+          lowStockProducts,
+
+          insight,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Dashboard error:",
+        error.message
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Failed to load dashboard data",
+        error: error.message,
+      });
+    }
   }
-});
+);
 
 /* =========================
    START SERVER
 ========================= */
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `KOSAR COLLECTION API running on port ${PORT}`
-  );
-});
+const startServer = async () => {
+  try {
+    await initializeUsersTable();
+
+    app.listen(
+      PORT,
+      "0.0.0.0",
+      () => {
+        console.log(
+          `KOSAR COLLECTION API running on port ${PORT}`
+        );
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Server startup failed:",
+      error.message
+    );
+
+    process.exit(1);
+  }
+};
+
+startServer();
